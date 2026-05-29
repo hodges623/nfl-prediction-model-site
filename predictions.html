@@ -18,14 +18,13 @@
 </div>
 
 <script>
-// Dynamically load available prediction files from a manifest
 async function loadManifest() {
     const res = await fetch("html/manifest.json");
     return await res.json();
 }
 
 function populateSeasonDropdown(manifest) {
-    const seasons = [...new Set(manifest.map(item => item.season))].sort();
+    const seasons = [...new Set(manifest.predictions_html.map(item => item.season))].sort();
     const seasonSelect = document.getElementById("seasonSelect");
 
     seasons.forEach(season => {
@@ -40,7 +39,7 @@ function populateWeekDropdown(manifest, season) {
     const weekSelect = document.getElementById("weekSelect");
     weekSelect.innerHTML = "";
 
-    const weeks = manifest
+    const weeks = manifest.predictions_html
         .filter(item => item.season == season)
         .map(item => item.week)
         .sort((a, b) => a - b);
@@ -75,18 +74,15 @@ async function init() {
     const seasonSelect = document.getElementById("seasonSelect");
     const weekSelect = document.getElementById("weekSelect");
 
-    // When season changes, update weeks
     seasonSelect.addEventListener("change", () => {
         populateWeekDropdown(manifest, seasonSelect.value);
         loadPrediction(seasonSelect.value, weekSelect.value);
     });
 
-    // When week changes, load prediction
     weekSelect.addEventListener("change", () => {
         loadPrediction(seasonSelect.value, weekSelect.value);
     });
 
-    // Initialize with first season + first week
     seasonSelect.dispatchEvent(new Event("change"));
 }
 
