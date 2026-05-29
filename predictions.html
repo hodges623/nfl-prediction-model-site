@@ -1,20 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Upcoming Predictions</title>
+    <title>Upcoming NFL Predictions</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <div class="container">
+
+    <!-- Navigation -->
+    <div style="margin-bottom: 20px;">
+        <a href="index.html" style="font-size: 1.1rem; text-decoration: none; color: #0055cc;">
+            ← Back to Main Page
+        </a>
+    </div>
+
     <h1>Upcoming NFL Predictions</h1>
 
-    <label for="seasonSelect">Select Season:</label>
-    <select id="seasonSelect"></select>
+    <label for="seasonSelect" style="font-weight: bold;">Select Season:</label>
+    <select id="seasonSelect" style="margin-left: 10px;"></select>
 
-    <label for="weekSelect">Select Week:</label>
-    <select id="weekSelect"></select>
+    <label for="weekSelect" style="margin-left: 20px; font-weight: bold;">Select Week:</label>
+    <select id="weekSelect" style="margin-left: 10px;"></select>
 
-    <div id="predictionTable"></div>
+    <div id="predictionTable" style="margin-top: 20px;"></div>
+
 </div>
 
 <script>
@@ -83,6 +93,7 @@ async function init() {
         loadPrediction(seasonSelect.value, weekSelect.value);
     });
 
+    // Trigger initial load
     seasonSelect.dispatchEvent(new Event("change"));
 }
 
