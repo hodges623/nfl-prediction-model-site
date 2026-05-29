@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Historical Accuracy</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <h1>Historical Model Accuracy</h1>
+    <table id="accuracyTable">
+        <thead>
+            <tr>
+                <th>Season</th>
+                <th>Week</th>
+                <th>Games</th>
+                <th>Correct</th>
+                <th>Accuracy</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+async function loadCSV(path) {
+    const res = await fetch(path);
+    const text = await res.text();
+    const rows = text.trim().split("\n").map(r => r.split(","));
+    const headers = rows.shift();
+    return rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
+}
+
+async function loadManifest() {
+    const res = await fetch("html/manifest.json");
+    return await res.json();
+}
+
+async function buildAccuracy() {
+    const manifest = await loadManifest();
+    const history = await loadCSV("data/nfl_historical_matchup_data.csv");
+
+    // Load all prediction CSVs dynamically
+    const predictions = [];
+    for (const entry of manifest.predictions_csv) {
+        const rows = await loadCSV(`data/${entry.file}`);
+        predictions.push(...rows);
+    }
+
+    const grouped = {};
+
+    history.forEach(h => {
+        const key = `${h.season}-${h.week}`;
+        if (!grouped[key]) grouped[key] = {games:0, correct:0};
+
+        grouped[key].games++;
+
+        const pred = predictions.find(p =>
+            p.season === h.season &&
+            p.week === h.week &&
+            p.team_abbr === h.team_abbr
+        );
+
+        if (pred && pred.predicted_winner === h.team_abbr && h.win === "True") {
+            grouped[key].correct++;
+        }
+    });
+
+    const tbody = document.querySelector("#accuracyTable tbody");
+
+    Object.entries(grouped).forEach(([key, stats]) => {
+        const [season, week] = key.split("-");
+        const acc = (stats.correct / stats.games * 100).toFixed(1) + "%";
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${season}</td>
+                <td>${week}</td>
+                <td>${stats.games}</td>
+                <td>${stats.correct}</td>
+                <td>${acc}</td>
+            </tr>
+        `;
+    });
+}
+
+buildAccuracy();
+</script>
+
+</body>
+</html>

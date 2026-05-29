@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upcoming Predictions</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <h1>Upcoming NFL Predictions</h1>
+
+    <label for="seasonSelect">Select Season:</label>
+    <select id="seasonSelect"></select>
+
+    <label for="weekSelect">Select Week:</label>
+    <select id="weekSelect"></select>
+
+    <div id="predictionTable"></div>
+</div>
+
+<script>
+// Dynamically load available prediction files from a manifest
+async function loadManifest() {
+    const res = await fetch("html/manifest.json");
+    return await res.json();
+}
+
+function populateSeasonDropdown(manifest) {
+    const seasons = [...new Set(manifest.map(item => item.season))].sort();
+    const seasonSelect = document.getElementById("seasonSelect");
+
+    seasons.forEach(season => {
+        const opt = document.createElement("option");
+        opt.value = season;
+        opt.textContent = season;
+        seasonSelect.appendChild(opt);
+    });
+}
+
+function populateWeekDropdown(manifest, season) {
+    const weekSelect = document.getElementById("weekSelect");
+    weekSelect.innerHTML = "";
+
+    const weeks = manifest
+        .filter(item => item.season == season)
+        .map(item => item.week)
+        .sort((a, b) => a - b);
+
+    weeks.forEach(week => {
+        const opt = document.createElement("option");
+        opt.value = week;
+        opt.textContent = `Week ${week}`;
+        weekSelect.appendChild(opt);
+    });
+}
+
+function loadPrediction(season, week) {
+    const path = `html/nfl_predictions_${season}_week${week}.html`;
+
+    fetch(path)
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById("predictionTable").innerHTML = html;
+        })
+        .catch(() => {
+            document.getElementById("predictionTable").innerHTML =
+                "<p>Prediction file not found.</p>";
+        });
+}
+
+async function init() {
+    const manifest = await loadManifest();
+
+    populateSeasonDropdown(manifest);
+
+    const seasonSelect = document.getElementById("seasonSelect");
+    const weekSelect = document.getElementById("weekSelect");
+
+    // When season changes, update weeks
+    seasonSelect.addEventListener("change", () => {
+        populateWeekDropdown(manifest, seasonSelect.value);
+        loadPrediction(seasonSelect.value, weekSelect.value);
+    });
+
+    // When week changes, load prediction
+    weekSelect.addEventListener("change", () => {
+        loadPrediction(seasonSelect.value, weekSelect.value);
+    });
+
+    // Initialize with first season + first week
+    seasonSelect.dispatchEvent(new Event("change"));
+}
+
+init();
+</script>
+
+</body>
+</html>
