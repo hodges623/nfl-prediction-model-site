@@ -118,27 +118,57 @@ async function buildAccuracy() {
         predictions.push(...rows);
     }
 
+    // Index predictions by season-week-team-opponent
+    const predIndex = {};
+    predictions.forEach(p => {
+        const key = `${p.season}-${p.week}-${p.team_abbr}-${p.opponent_abbr}`;
+        predIndex[key] = p;
+    });
+
+    // Group historical rows by game_id (two rows per game)
+    const games = {};
+    history.forEach(h => {
+        const key = `${h.game_id}`;
+        if (!games[key]) games[key] = [];
+        games[key].push(h);
+    });
+
     // Group accuracy by season-week
     const grouped = {};
 
-    history
-        .filter(h => validKeys.has(`${h.season}-${h.week}`))
-        .forEach(h => {
-            const key = `${h.season}-${h.week}`;
-            if (!grouped[key]) grouped[key] = {games: 0, correct: 0};
+    Object.values(games).forEach(rows => {
+        const h = rows[0]; // both rows share season/week/game_id
 
-            grouped[key].games++;
+        const season = h.season;
+        const week = h.week;
+        const keyWeek = `${season}-${week}`;
 
-            const pred = predictions.find(p =>
-                p.season === h.season &&
-                p.week === h.week &&
-                p.team_abbr === h.team_abbr
-            );
+        // Only evaluate games that were predicted
+        if (!validKeys.has(keyWeek)) return;
 
-            if (pred && pred.predicted_winner === h.team_abbr && h.win === "True") {
-                grouped[key].correct++;
-            }
-        });
+        // Determine actual winner (look for win === "True")
+        const winnerRow = rows.find(r => r.win === "True");
+        const loserRow = rows.find(r => r.win === "False");
+
+        if (!winnerRow || !loserRow) return;
+
+        const actualWinner = winnerRow.team_abbr;
+
+        // Build prediction lookup keys (both directions)
+        const predKey = `${season}-${week}-${winnerRow.team_abbr}-${loserRow.team_abbr}`;
+        const predKeyReverse = `${season}-${week}-${loserRow.team_abbr}-${winnerRow.team_abbr}`;
+
+        const pred =
+            predIndex[predKey] ||
+            predIndex[predKeyReverse];
+
+        if (!grouped[keyWeek]) grouped[keyWeek] = {games: 0, correct: 0};
+        grouped[keyWeek].games++;
+
+        if (pred && pred.predicted_winner === actualWinner) {
+            grouped[keyWeek].correct++;
+        }
+    });
 
     // Handle view mode switching
     const viewMode = document.getElementById("viewMode");
