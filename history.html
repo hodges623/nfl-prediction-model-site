@@ -10,7 +10,7 @@
 
     <!-- Navigation -->
     <div style="margin-bottom: 20px;">
-        <a href="index.html" style="font-size: 1.1rem; text-decoration: none; color: #0055cc;">
+        <a href="index.html" style="font-size: 1.1rem; text-decoration: none;">
             ← Back to Main Page
         </a>
     </div>
@@ -18,13 +18,21 @@
     <h1>Historical Model Accuracy</h1>
 
     <!-- View Mode Selector -->
-    <label for="viewMode" style="font-weight: bold;">View Accuracy By:</label>
-    <select id="viewMode" style="margin-left: 10px;">
-        <option value="week">Week</option>
-        <option value="season">Season</option>
-    </select>
+    <div style="margin-bottom: 10px;">
+        <label for="viewMode" style="font-weight: bold;">View Accuracy By:</label>
+        <select id="viewMode" style="margin-left: 10px;">
+            <option value="week">Week</option>
+            <option value="season">Season</option>
+        </select>
+    </div>
 
-    <table id="accuracyTable">
+    <!-- Loading indicator -->
+    <div id="historyLoading" class="loading">
+        <div class="loader-spinner"></div>
+        <div>Calculating historical accuracy...</div>
+    </div>
+
+    <table id="accuracyTable" class="hidden">
         <thead>
             <tr>
                 <th>Season</th>
@@ -53,6 +61,18 @@ async function loadCSV(path) {
 async function loadManifest() {
     const res = await fetch("html/manifest.json");
     return await res.json();
+}
+
+function showHistoryLoading(show) {
+    const loadingEl = document.getElementById("historyLoading");
+    const tableEl = document.getElementById("accuracyTable");
+    if (show) {
+        loadingEl.classList.remove("hidden");
+        tableEl.classList.add("hidden");
+    } else {
+        loadingEl.classList.add("hidden");
+        tableEl.classList.remove("hidden");
+    }
 }
 
 // Render table based on mode (week or season)
@@ -103,6 +123,8 @@ function renderTable(grouped, mode) {
 }
 
 async function buildAccuracy() {
+    showHistoryLoading(true);
+
     const manifest = await loadManifest();
     const history = await loadCSV("data/nfl_historical_matchup_data.csv");
 
@@ -176,8 +198,11 @@ async function buildAccuracy() {
         renderTable(grouped, viewMode.value);
     });
 
-    // Default view
-    renderTable(grouped, "week");
+    // Default view: season
+    viewMode.value = "season";
+    renderTable(grouped, "season");
+
+    showHistoryLoading(false);
 }
 
 buildAccuracy();

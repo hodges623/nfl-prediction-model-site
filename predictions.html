@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Upcoming NFL Predictions</title>
+    <title>Modeled NFL Predictions</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -10,18 +10,26 @@
 
     <!-- Navigation -->
     <div style="margin-bottom: 20px;">
-        <a href="index.html" style="font-size: 1.1rem; text-decoration: none; color: #0055cc;">
+        <a href="index.html" style="font-size: 1.1rem; text-decoration: none;">
             ← Back to Main Page
         </a>
     </div>
 
-    <h1>Upcoming NFL Predictions</h1>
+    <h1>Modeled NFL Predictions</h1>
 
-    <label for="seasonSelect" style="font-weight: bold;">Select Season:</label>
-    <select id="seasonSelect" style="margin-left: 10px;"></select>
+    <div style="text-align: center;">
+        <label for="seasonSelect" style="font-weight: bold;">Select Season:</label>
+        <select id="seasonSelect" style="margin-left: 10px;"></select>
 
-    <label for="weekSelect" style="margin-left: 20px; font-weight: bold;">Select Week:</label>
-    <select id="weekSelect" style="margin-left: 10px;"></select>
+        <label for="weekSelect" style="margin-left: 20px; font-weight: bold;">Select Week:</label>
+        <select id="weekSelect" style="margin-left: 10px;"></select>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="predictionsLoading" class="loading hidden">
+        <div class="loader-spinner"></div>
+        <div>Loading predictions...</div>
+    </div>
 
     <div id="predictionTable" style="margin-top: 20px;"></div>
 
@@ -33,9 +41,19 @@ async function loadManifest() {
     return await res.json();
 }
 
+function showPredictionsLoading(show) {
+    const el = document.getElementById("predictionsLoading");
+    if (show) {
+        el.classList.remove("hidden");
+    } else {
+        el.classList.add("hidden");
+    }
+}
+
 function populateSeasonDropdown(manifest) {
-    const seasons = [...new Set(manifest.predictions_html.map(item => item.season))].sort();
+    const seasons = [...new Set(manifest.predictions_html.map(item => Number(item.season)))].sort((a,b) => a - b);
     const seasonSelect = document.getElementById("seasonSelect");
+    seasonSelect.innerHTML = "";
 
     seasons.forEach(season => {
         const opt = document.createElement("option");
@@ -50,8 +68,8 @@ function populateWeekDropdown(manifest, season) {
     weekSelect.innerHTML = "";
 
     const weeks = manifest.predictions_html
-        .filter(item => item.season == season)
-        .map(item => item.week)
+        .filter(item => Number(item.season) === Number(season))
+        .map(item => Number(item.week))
         .sort((a, b) => a - b);
 
     weeks.forEach(week => {
@@ -62,8 +80,21 @@ function populateWeekDropdown(manifest, season) {
     });
 }
 
+function getLatestSeason(manifest) {
+    return Math.max(...manifest.predictions_html.map(item => Number(item.season)));
+}
+
+function getLatestWeek(manifest, season) {
+    return Math.max(
+        ...manifest.predictions_html
+            .filter(item => Number(item.season) === Number(season))
+            .map(item => Number(item.week))
+    );
+}
+
 function loadPrediction(season, week) {
     const path = `html/nfl_predictions_${season}_week${week}.html`;
+    showPredictionsLoading(true);
 
     fetch(path)
         .then(res => res.text())
@@ -73,10 +104,14 @@ function loadPrediction(season, week) {
         .catch(() => {
             document.getElementById("predictionTable").innerHTML =
                 "<p>Prediction file not found.</p>";
+        })
+        .finally(() => {
+            showPredictionsLoading(false);
         });
 }
 
 async function init() {
+    showPredictionsLoading(true);
     const manifest = await loadManifest();
 
     populateSeasonDropdown(manifest);
@@ -84,8 +119,19 @@ async function init() {
     const seasonSelect = document.getElementById("seasonSelect");
     const weekSelect = document.getElementById("weekSelect");
 
+    // Default to latest season and latest week
+    const latestSeason = getLatestSeason(manifest);
+    seasonSelect.value = latestSeason;
+
+    populateWeekDropdown(manifest, latestSeason);
+    const latestWeek = getLatestWeek(manifest, latestSeason);
+    weekSelect.value = latestWeek;
+
+    // Event listeners
     seasonSelect.addEventListener("change", () => {
         populateWeekDropdown(manifest, seasonSelect.value);
+        const latestWeekForSeason = getLatestWeek(manifest, seasonSelect.value);
+        weekSelect.value = latestWeekForSeason;
         loadPrediction(seasonSelect.value, weekSelect.value);
     });
 
@@ -93,8 +139,8 @@ async function init() {
         loadPrediction(seasonSelect.value, weekSelect.value);
     });
 
-    // Trigger initial load
-    seasonSelect.dispatchEvent(new Event("change"));
+    // Initial load
+    loadPrediction(latestSeason, latestWeek);
 }
 
 init();
