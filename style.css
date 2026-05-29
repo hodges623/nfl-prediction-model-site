@@ -112,3 +112,8 @@ select {
 .hidden {
     display: none;
 }
+
+/* Predictions table wrapper (for future tweaks if needed) */
+#predictionTable {
+    margin-top: 20px;
+}

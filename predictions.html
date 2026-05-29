@@ -31,7 +31,7 @@
         <div>Loading predictions...</div>
     </div>
 
-    <div id="predictionTable" style="margin-top: 20px;"></div>
+    <div id="predictionTable"></div>
 
 </div>
 
@@ -51,7 +51,7 @@ function showPredictionsLoading(show) {
 }
 
 function populateSeasonDropdown(manifest) {
-    const seasons = [...new Set(manifest.predictions_html.map(item => Number(item.season)))].sort((a,b) => a - b);
+    const seasons = [...new Set(manifest.predictions_csv.map(item => Number(item.season)))].sort((a,b) => a - b);
     const seasonSelect = document.getElementById("seasonSelect");
     seasonSelect.innerHTML = "";
 
@@ -67,7 +67,7 @@ function populateWeekDropdown(manifest, season) {
     const weekSelect = document.getElementById("weekSelect");
     weekSelect.innerHTML = "";
 
-    const weeks = manifest.predictions_html
+    const weeks = manifest.predictions_csv
         .filter(item => Number(item.season) === Number(season))
         .map(item => Number(item.week))
         .sort((a, b) => a - b);
@@ -81,33 +81,79 @@ function populateWeekDropdown(manifest, season) {
 }
 
 function getLatestSeason(manifest) {
-    return Math.max(...manifest.predictions_html.map(item => Number(item.season)));
+    return Math.max(...manifest.predictions_csv.map(item => Number(item.season)));
 }
 
 function getLatestWeek(manifest, season) {
     return Math.max(
-        ...manifest.predictions_html
+        ...manifest.predictions_csv
             .filter(item => Number(item.season) === Number(season))
             .map(item => Number(item.week))
     );
 }
 
-function loadPrediction(season, week) {
-    const path = `html/nfl_predictions_${season}_week${week}.html`;
-    showPredictionsLoading(true);
+async function loadCSV(path) {
+    const res = await fetch(path);
+    const text = await res.text();
+    const rows = text.trim().split("\n").map(r => r.split(","));
+    const headers = rows.shift();
+    return {
+        headers,
+        rows
+    };
+}
 
-    fetch(path)
-        .then(res => res.text())
-        .then(html => {
-            document.getElementById("predictionTable").innerHTML = html;
-        })
-        .catch(() => {
-            document.getElementById("predictionTable").innerHTML =
-                "<p>Prediction file not found.</p>";
-        })
-        .finally(() => {
-            showPredictionsLoading(false);
+function renderPredictionTable(csvData) {
+    const container = document.getElementById("predictionTable");
+    container.innerHTML = "";
+
+    if (!csvData || csvData.rows.length === 0) {
+        container.innerHTML = "<p>No prediction data available for this week.</p>";
+        return;
+    }
+
+    let html = "<table><thead><tr>";
+    csvData.headers.forEach(h => {
+        html += `<th>${h}</th>`;
+    });
+    html += "</tr></thead><tbody>";
+
+    csvData.rows.forEach(row => {
+        html += "<tr>";
+        row.forEach(cell => {
+            html += `<td>${cell}</td>`;
         });
+        html += "</tr>";
+    });
+
+    html += "</tbody></table>";
+    container.innerHTML = html;
+}
+
+async function loadPrediction(manifest, season, week) {
+    showPredictionsLoading(true);
+    const entry = manifest.predictions_csv.find(
+        p => Number(p.season) === Number(season) && Number(p.week) === Number(week)
+    );
+
+    if (!entry) {
+        document.getElementById("predictionTable").innerHTML =
+            "<p>No prediction file found for this season/week.</p>";
+        showPredictionsLoading(false);
+        return;
+    }
+
+    const path = `data/${entry.file}`;
+
+    try {
+        const csvData = await loadCSV(path);
+        renderPredictionTable(csvData);
+    } catch (e) {
+        document.getElementById("predictionTable").innerHTML =
+            "<p>Error loading prediction data.</p>";
+    } finally {
+        showPredictionsLoading(false);
+    }
 }
 
 async function init() {
@@ -132,15 +178,15 @@ async function init() {
         populateWeekDropdown(manifest, seasonSelect.value);
         const latestWeekForSeason = getLatestWeek(manifest, seasonSelect.value);
         weekSelect.value = latestWeekForSeason;
-        loadPrediction(seasonSelect.value, weekSelect.value);
+        loadPrediction(manifest, seasonSelect.value, weekSelect.value);
     });
 
     weekSelect.addEventListener("change", () => {
-        loadPrediction(seasonSelect.value, weekSelect.value);
+        loadPrediction(manifest, seasonSelect.value, weekSelect.value);
     });
 
     // Initial load
-    loadPrediction(latestSeason, latestWeek);
+    await loadPrediction(manifest, latestSeason, latestWeek);
 }
 
 init();
