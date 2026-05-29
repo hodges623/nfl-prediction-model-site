@@ -1,10 +1,8 @@
 {
   "predictions_html": [
-    { "season": 2026, "week": 1, "file": "nfl_predictions_2026_week1.html" },
-    { "season": 2026, "week": 2, "file": "nfl_predictions_2026_week2.html" }
+    { "season": 2026, "week": 1, "file": "nfl_predictions_2026_week1.html" }
   ],
   "predictions_csv": [
-    { "season": 2026, "week": 1, "file": "nfl_predict_outcome2026w1.csv" },
-    { "season": 2026, "week": 2, "file": "nfl_predict_outcome2026w2.csv" }
+    { "season": 2026, "week": 1, "file": "nfl_predict_outcome2026w1.csv" }
   ]
 }
