@@ -43,11 +43,8 @@ async function loadManifest() {
 
 function showPredictionsLoading(show) {
     const el = document.getElementById("predictionsLoading");
-    if (show) {
-        el.classList.remove("hidden");
-    } else {
-        el.classList.add("hidden");
-    }
+    if (show) el.classList.remove("hidden");
+    else el.classList.add("hidden");
 }
 
 function populateSeasonDropdown(manifest) {
@@ -97,10 +94,7 @@ async function loadCSV(path) {
     const text = await res.text();
     const rows = text.trim().split("\n").map(r => r.split(","));
     const headers = rows.shift();
-    return {
-        headers,
-        rows
-    };
+    return { headers, rows };
 }
 
 function renderPredictionTable(csvData) {
@@ -113,25 +107,24 @@ function renderPredictionTable(csvData) {
     }
 
     let html = "<table><thead><tr>";
-    csvData.headers.forEach(h => {
-        html += `<th>${h}</th>`;
-    });
+    csvData.headers.forEach(h => html += `<th>${h}</th>`);
     html += "</tr></thead><tbody>";
 
     csvData.rows.forEach(row => {
         html += "<tr>";
-        row.forEach(cell => {
-            html += `<td>${cell}</td>`;
-        });
+        row.forEach(cell => html += `<td>${cell}</td>`);
         html += "</tr>";
     });
 
     html += "</tbody></table>";
-    container.innerHTML = html;
+
+    // NEW: Wrap table in centering container
+    container.innerHTML = `<div class="prediction-wrapper">${html}</div>`;
 }
 
 async function loadPrediction(manifest, season, week) {
     showPredictionsLoading(true);
+
     const entry = manifest.predictions_csv.find(
         p => Number(p.season) === Number(season) && Number(p.week) === Number(week)
     );
@@ -143,12 +136,10 @@ async function loadPrediction(manifest, season, week) {
         return;
     }
 
-    const path = `data/${entry.file}`;
-
     try {
-        const csvData = await loadCSV(path);
+        const csvData = await loadCSV(`data/${entry.file}`);
         renderPredictionTable(csvData);
-    } catch (e) {
+    } catch {
         document.getElementById("predictionTable").innerHTML =
             "<p>Error loading prediction data.</p>";
     } finally {
@@ -165,7 +156,6 @@ async function init() {
     const seasonSelect = document.getElementById("seasonSelect");
     const weekSelect = document.getElementById("weekSelect");
 
-    // Default to latest season and latest week
     const latestSeason = getLatestSeason(manifest);
     seasonSelect.value = latestSeason;
 
@@ -173,7 +163,6 @@ async function init() {
     const latestWeek = getLatestWeek(manifest, latestSeason);
     weekSelect.value = latestWeek;
 
-    // Event listeners
     seasonSelect.addEventListener("change", () => {
         populateWeekDropdown(manifest, seasonSelect.value);
         const latestWeekForSeason = getLatestWeek(manifest, seasonSelect.value);
@@ -185,7 +174,6 @@ async function init() {
         loadPrediction(manifest, seasonSelect.value, weekSelect.value);
     });
 
-    // Initial load
     await loadPrediction(manifest, latestSeason, latestWeek);
 }
 

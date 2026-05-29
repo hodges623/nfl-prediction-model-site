@@ -113,7 +113,16 @@ select {
     display: none;
 }
 
-/* Predictions table wrapper (for future tweaks if needed) */
-#predictionTable {
-    margin-top: 20px;
+/* NEW: Center CSV-rendered prediction tables */
+.prediction-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.prediction-wrapper table {
+    margin: 0 auto;
+    width: auto;
+    max-width: 100%;
 }
