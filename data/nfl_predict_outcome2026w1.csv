@@ -1,17 +1,17 @@
-Season,Week,Home Team,Away Team,Predicted Winner,Win Probability,Predicted Winner Spread,Against The Spread,Avg Book Spread
-2026,1,HOU,BUF,HOU,0.5113745,-1.3,against_the_spread,1.2
-2026,1,TEN,NYJ,TEN,0.55303395,-1.8,with_the_spread,-2.6
-2026,1,IND,BAL,BAL,0.6408615,-3.5,with_the_spread,-3.5
-2026,1,JAX,CLE,JAX,0.7841563,-8.5,with_the_spread,-7.3
-2026,1,KC,DEN,DEN,0.72990453,-6.3,against_the_spread,2.7
-2026,1,LV,MIA,MIA,0.6464163,-3.7,against_the_spread,3.3
-2026,1,LAC,ARI,LAC,0.82003796,-10.2,with_the_spread,-10.4
-2026,1,PHI,WSH,PHI,0.58280265,-2.2,with_the_spread,-4.3
-2026,1,NYG,DAL,DAL,0.5861439,-2.3,with_the_spread,-2.2
-2026,1,MIN,GB,GB,0.55098724,-1.7,with_the_spread,-1.1
-2026,1,DET,NO,NO,0.5247476,-1.4,against_the_spread,7.1
-2026,1,CAR,CHI,CHI,0.66571456,-4.2,with_the_spread,-2.4
-2026,1,SEA,NE,SEA,0.6338103,-3.3,with_the_spread,-4.3
-2026,1,LAR,SF,SF,0.64662397,-3.7,against_the_spread,2.8
-2026,1,PIT,ATL,ATL,0.5402379,-1.6,against_the_spread,2.9
-2026,1,CIN,TB,CIN,0.6252853,-3.1,with_the_spread,-3.5
+Home Team,Away Team,Predicted Winner,Win Probability,Win Spread,Versus Book,Book Spread
+HOU,BUF,HOU,0.5113745,-1.3,against,1.2
+TEN,NYJ,TEN,0.55303395,-1.8,with,-2.6
+IND,BAL,BAL,0.6408615,-3.5,with,-3.5
+JAX,CLE,JAX,0.7841563,-8.5,with,-7.3
+KC,DEN,DEN,0.72990453,-6.3,against,2.7
+LV,MIA,MIA,0.6464163,-3.7,against,3.3
+LAC,ARI,LAC,0.82003796,-10.2,with,-10.4
+PHI,WSH,PHI,0.58280265,-2.2,with,-4.3
+NYG,DAL,DAL,0.5861439,-2.3,with,-2.2
+MIN,GB,GB,0.55098724,-1.7,with,-1.1
+DET,NO,NO,0.5247476,-1.4,against,7.1
+CAR,CHI,CHI,0.66571456,-4.2,with,-2.4
+SEA,NE,SEA,0.6338103,-3.3,with,-4.3
+LAR,SF,SF,0.64662397,-3.7,against,2.8
+PIT,ATL,ATL,0.5402379,-1.6,against,2.9
+CIN,TB,CIN,0.6252853,-3.1,with,-3.5
