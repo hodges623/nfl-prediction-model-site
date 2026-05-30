@@ -28,7 +28,6 @@ a:hover {
 }
 
 table {
-    width: 100%;
     border-collapse: collapse;
     margin: 20px auto;
     background-color: #181818;
@@ -38,6 +37,7 @@ th, td {
     padding: 8px 10px;
     border-bottom: 1px solid #333;
     text-align: center;
+    white-space: nowrap;
 }
 
 th {
@@ -113,16 +113,16 @@ select {
     display: none;
 }
 
-/* NEW: Center CSV-rendered prediction tables */
+/* FIXED: Center CSV-rendered prediction tables WITHOUT clipping */
 .prediction-wrapper {
     width: 100%;
-    overflow-x: auto;
-    display: flex;
-    justify-content: center;
+    overflow-x: auto;      /* allow horizontal scroll */
+    text-align: center;    /* center inline-block table */
 }
 
 .prediction-wrapper table {
+    display: inline-block; /* allows centering */
     margin: 0 auto;
     width: auto;
-    max-width: 100%;
+    max-width: none;       /* allow full width so scroll works */
 }

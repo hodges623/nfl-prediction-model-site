@@ -118,7 +118,7 @@ function renderPredictionTable(csvData) {
 
     html += "</tbody></table>";
 
-    // NEW: Wrap table in centering container
+    // FIXED: Wrap table in non-flex centering container
     container.innerHTML = `<div class="prediction-wrapper">${html}</div>`;
 }
 
