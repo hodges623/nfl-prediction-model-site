@@ -31,6 +31,12 @@
         <div>Loading predictions...</div>
     </div>
 
+    <!-- Summary box -->
+    <div id="summaryBox" class="summary-box hidden"></div>
+
+    <!-- Download button -->
+    <div id="downloadContainer" style="text-align: right; margin-top: 10px;"></div>
+
     <div id="predictionTable"></div>
 
 </div>
@@ -97,29 +103,200 @@ async function loadCSV(path) {
     return { headers, rows };
 }
 
+// Map win probability to implied spread (approx, based on your earlier table)
+function impliedSpreadFromProb(prob) {
+    // prob is 0–1
+    const p = prob;
+    if (p < 0.52) return 0; // near pick'em
+    if (p < 0.57) return -1.25;   // 52–57%
+    if (p < 0.65) return -3.0;    // 57–65%
+    if (p < 0.70) return -4.0;    // 65–70%
+    if (p < 0.75) return -6.0;    // 70–75%
+    if (p < 0.80) return -8.0;    // 75–80%
+    if (p < 0.85) return -10.0;   // 80–85%
+    return -13.0;                 // 85%+
+}
+
+function formatPercent(prob) {
+    if (prob === null || isNaN(prob)) return "";
+    return (prob * 100).toFixed(1) + "%";
+}
+
+function buildSummary(headers, rows) {
+    const idx = {};
+    headers.forEach((h, i) => { idx[h] = i; });
+
+    // Try to detect probability column
+    let probCol = null;
+    for (const h of headers) {
+        if (h.toLowerCase().includes("prob")) {
+            probCol = h;
+            break;
+        }
+    }
+    if (!probCol) return null;
+
+    const probIdx = idx[probCol];
+    const predWinnerIdx = idx["predicted_winner"];
+    const teamIdx = idx["team_abbr"] || idx["home_team"] || idx["Team"];
+    const oppIdx = idx["opponent_abbr"] || idx["away_team"] || idx["Opponent"];
+    const bookSpreadIdx = idx["Book Spread"];
+
+    let mostConf = null;
+    let closest = null;
+    let biggestDev = null;
+
+    rows.forEach(row => {
+        const prob = parseFloat(row[probIdx]);
+        if (isNaN(prob)) return;
+
+        const team = teamIdx != null ? row[teamIdx] : "";
+        const opp = oppIdx != null ? row[oppIdx] : "";
+        const pred = predWinnerIdx != null ? row[predWinnerIdx] : "";
+        const bookSpread = bookSpreadIdx != null ? parseFloat(row[bookSpreadIdx]) : null;
+
+        // Most confident: max prob
+        if (!mostConf || prob > mostConf.prob) {
+            mostConf = { prob, team, opp, pred };
+        }
+
+        // Closest matchup: prob closest to 0.5
+        const dist = Math.abs(prob - 0.5);
+        if (!closest || dist < closest.dist) {
+            closest = { prob, team, opp, pred, dist };
+        }
+
+        // Biggest deviation from book spread
+        if (bookSpread != null && !isNaN(bookSpread)) {
+            const modelSpread = impliedSpreadFromProb(prob);
+            const dev = Math.abs(modelSpread - bookSpread);
+            if (!biggestDev || dev > biggestDev.dev) {
+                biggestDev = { prob, team, opp, pred, bookSpread, modelSpread, dev };
+            }
+        }
+    });
+
+    return { mostConf, closest, biggestDev };
+}
+
+function renderSummaryBox(summary) {
+    const box = document.getElementById("summaryBox");
+    if (!summary || !summary.mostConf || !summary.closest) {
+        box.classList.add("hidden");
+        box.innerHTML = "";
+        return;
+    }
+
+    const { mostConf, closest, biggestDev } = summary;
+
+    let html = "<h2>Week Summary</h2>";
+
+    html += `<div class="summary-item"><strong>Most Confident Matchup:</strong> ${mostConf.team} vs ${mostConf.opp} — ${formatPercent(mostConf.prob)} (Predicted: ${mostConf.pred})</div>`;
+
+    html += `<div class="summary-item"><strong>Closest Matchup:</strong> ${closest.team} vs ${closest.opp} — ${formatPercent(closest.prob)} (Predicted: ${closest.pred})</div>`;
+
+    if (biggestDev) {
+        const devStr = biggestDev.dev.toFixed(1);
+        const modelStr = biggestDev.modelSpread.toFixed(1);
+        const bookStr = biggestDev.bookSpread.toFixed(1);
+        html += `<div class="summary-item"><strong>Biggest Deviation from Book Spread:</strong> ${biggestDev.team} vs ${biggestDev.opp} — Model: ${modelStr}, Book: ${bookStr} (Δ = ${devStr})</div>`;
+    }
+
+    box.innerHTML = html;
+    box.classList.remove("hidden");
+}
+
 function renderPredictionTable(csvData) {
     const container = document.getElementById("predictionTable");
     container.innerHTML = "";
 
     if (!csvData || csvData.rows.length === 0) {
         container.innerHTML = "<p>No prediction data available for this week.</p>";
+        document.getElementById("summaryBox").classList.add("hidden");
         return;
     }
 
+    const headers = csvData.headers;
+    const rows = csvData.rows;
+
+    // Build header index map
+    const idx = {};
+    headers.forEach((h, i) => { idx[h] = i; });
+
+    // Detect probability column (winner_probability or similar)
+    let probCol = null;
+    for (const h of headers) {
+        if (h.toLowerCase().includes("prob")) {
+            probCol = h;
+            break;
+        }
+    }
+
+    // Sort rows by probability descending if available
+    let sortedRows = rows;
+    if (probCol) {
+        const probIdx = idx[probCol];
+        sortedRows = [...rows].sort((a, b) => {
+            const pa = parseFloat(a[probIdx]);
+            const pb = parseFloat(b[probIdx]);
+            if (isNaN(pa) && isNaN(pb)) return 0;
+            if (isNaN(pa)) return 1;
+            if (isNaN(pb)) return -1;
+            return pb - pa;
+        });
+    }
+
+    // Build summary
+    const summary = buildSummary(headers, sortedRows);
+    renderSummaryBox(summary);
+
+    // Build table HTML
     let html = "<table><thead><tr>";
-    csvData.headers.forEach(h => html += `<th>${h}</th>`);
+    headers.forEach(h => html += `<th>${h}</th>`);
     html += "</tr></thead><tbody>";
 
-    csvData.rows.forEach(row => {
+    const predWinnerIdx = idx["predicted_winner"];
+    const bookSpreadIdx = idx["Book Spread"];
+    const probIdx = probCol ? idx[probCol] : null;
+
+    sortedRows.forEach(row => {
         html += "<tr>";
-        row.forEach(cell => html += `<td>${cell}</td>`);
+        row.forEach((cell, colIdx) => {
+            let display = cell;
+
+            // Format probability as percentage
+            if (probIdx !== null && colIdx === probIdx) {
+                const p = parseFloat(cell);
+                display = isNaN(p) ? "" : formatPercent(p);
+            }
+
+            // Bold + highlight predicted winner cell
+            if (predWinnerIdx !== null && colIdx === predWinnerIdx) {
+                html += `<td class="predicted-winner-cell">${display}</td>`;
+            } else {
+                html += `<td>${display}</td>`;
+            }
+        });
         html += "</tr>";
     });
 
     html += "</tbody></table>";
 
-    // FIXED: Wrap table in non-flex centering container
     container.innerHTML = `<div class="prediction-wrapper">${html}</div>`;
+}
+
+function renderDownloadButton(filePath) {
+    const container = document.getElementById("downloadContainer");
+    container.innerHTML = "";
+
+    if (!filePath) return;
+
+    const a = document.createElement("a");
+    a.href = filePath;
+    a.textContent = "Download CSV";
+    a.className = "download-btn";
+    a.setAttribute("download", "");
+    container.appendChild(a);
 }
 
 async function loadPrediction(manifest, season, week) {
@@ -132,16 +309,22 @@ async function loadPrediction(manifest, season, week) {
     if (!entry) {
         document.getElementById("predictionTable").innerHTML =
             "<p>No prediction file found for this season/week.</p>";
+        document.getElementById("summaryBox").classList.add("hidden");
+        document.getElementById("downloadContainer").innerHTML = "";
         showPredictionsLoading(false);
         return;
     }
 
+    const path = `data/${entry.file}`;
+    renderDownloadButton(path);
+
     try {
-        const csvData = await loadCSV(`data/${entry.file}`);
+        const csvData = await loadCSV(path);
         renderPredictionTable(csvData);
     } catch {
         document.getElementById("predictionTable").innerHTML =
             "<p>Error loading prediction data.</p>";
+        document.getElementById("summaryBox").classList.add("hidden");
     } finally {
         showPredictionsLoading(false);
     }

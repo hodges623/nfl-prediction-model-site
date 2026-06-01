@@ -3,6 +3,8 @@
 <head>
     <title>Historical Model Accuracy</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for team accuracy chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -44,6 +46,12 @@
         </thead>
         <tbody></tbody>
     </table>
+
+    <!-- Team accuracy chart -->
+    <div class="chart-container">
+        <h2 style="text-align:center; margin-top:0; font-size:1.1rem;">Model Accuracy by Team</h2>
+        <canvas id="teamAccuracyChart"></canvas>
+    </div>
 
 </div>
 
@@ -122,6 +130,61 @@ function renderTable(grouped, mode) {
     }
 }
 
+let teamAccuracyChart = null;
+
+function renderTeamAccuracyChart(teamStats) {
+    const labels = [];
+    const data = [];
+
+    Object.entries(teamStats).forEach(([team, stats]) => {
+        if (stats.games > 0) {
+            labels.push(team);
+            data.push((stats.correct / stats.games * 100).toFixed(1));
+        }
+    });
+
+    const ctx = document.getElementById("teamAccuracyChart").getContext("2d");
+
+    if (teamAccuracyChart) {
+        teamAccuracyChart.destroy();
+    }
+
+    teamAccuracyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Accuracy (%)',
+                data,
+                backgroundColor: '#2b5fb8'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.parsed.y}%`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#f5f5f5' },
+                    grid: { color: '#333' }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { color: '#f5f5f5' },
+                    grid: { color: '#333' }
+                }
+            }
+        }
+    });
+}
+
 async function buildAccuracy() {
     showHistoryLoading(true);
 
@@ -157,6 +220,8 @@ async function buildAccuracy() {
 
     // Group accuracy by season-week
     const grouped = {};
+    // Team accuracy stats
+    const teamStats = {};
 
     Object.values(games).forEach(rows => {
         const h = rows[0]; // both rows share season/week/game_id
@@ -187,9 +252,16 @@ async function buildAccuracy() {
         if (!grouped[keyWeek]) grouped[keyWeek] = {games: 0, correct: 0};
         grouped[keyWeek].games++;
 
-        if (pred && pred.predicted_winner === actualWinner) {
-            grouped[keyWeek].correct++;
-        }
+        const isCorrect = pred && pred.predicted_winner === actualWinner;
+        if (isCorrect) grouped[keyWeek].correct++;
+
+        // Team accuracy: count for both teams in the game
+        const teamsInGame = rows.map(r => r.team_abbr);
+        teamsInGame.forEach(team => {
+            if (!teamStats[team]) teamStats[team] = {games: 0, correct: 0};
+            teamStats[team].games += 1;
+            if (isCorrect) teamStats[team].correct += 1;
+        });
     });
 
     // Handle view mode switching
@@ -201,6 +273,9 @@ async function buildAccuracy() {
     // Default view: season
     viewMode.value = "season";
     renderTable(grouped, "season");
+
+    // Render team accuracy chart
+    renderTeamAccuracyChart(teamStats);
 
     showHistoryLoading(false);
 }

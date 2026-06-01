@@ -113,16 +113,68 @@ select {
     display: none;
 }
 
-/* FIXED: Center CSV-rendered prediction tables WITHOUT clipping */
+/* Predictions summary box */
+.summary-box {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #181818;
+    border-radius: 8px;
+    border: 1px solid #333;
+    font-size: 0.95rem;
+}
+
+.summary-box h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.summary-item {
+    margin: 4px 0;
+}
+
+/* Predicted winner highlight */
+.predicted-winner-cell {
+    font-weight: bold;
+    background-color: #24313f;
+}
+
+/* Center CSV-rendered prediction tables WITHOUT clipping */
 .prediction-wrapper {
     width: 100%;
-    overflow-x: auto;      /* allow horizontal scroll */
-    text-align: center;    /* center inline-block table */
+    overflow-x: auto;
+    text-align: center;
 }
 
 .prediction-wrapper table {
-    display: inline-block; /* allows centering */
+    display: inline-block;
     margin: 0 auto;
     width: auto;
-    max-width: none;       /* allow full width so scroll works */
+    max-width: none;
+}
+
+/* Download button */
+.download-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 12px;
+    background-color: #2b5fb8;
+    color: #f5f5f5;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.download-btn:hover {
+    background-color: #3c74d4;
+}
+
+/* Chart container */
+.chart-container {
+    margin-top: 30px;
+    background-color: #181818;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid #333;
 }
