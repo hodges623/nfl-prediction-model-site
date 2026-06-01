@@ -43,6 +43,7 @@
 </div>
 
 <script>
+/* -------------------- Manifest Loader -------------------- */
 async function loadManifest() {
     const res = await fetch("html/manifest.json");
     return await res.json();
@@ -54,6 +55,7 @@ function showPredictionsLoading(show) {
     else el.classList.add("hidden");
 }
 
+/* -------------------- Dropdown Setup -------------------- */
 function populateSeasonDropdown(manifest) {
     const seasons = [...new Set(manifest.predictions_csv.map(item => Number(item.season)))].sort((a,b) => a - b);
     const seasonSelect = document.getElementById("seasonSelect");
@@ -96,6 +98,7 @@ function getLatestWeek(manifest, season) {
     );
 }
 
+/* -------------------- CSV Loader -------------------- */
 async function loadCSV(path) {
     const res = await fetch(path);
     const text = await res.text();
@@ -104,8 +107,7 @@ async function loadCSV(path) {
     return { headers, rows };
 }
 
-/* ---------- Helper: column detection ---------- */
-
+/* -------------------- Column Detection Helpers -------------------- */
 function normalizeHeader(h) {
     return h.toLowerCase().replace(/[\s_]/g, "");
 }
@@ -122,24 +124,11 @@ function findColumn(headers, candidates, {contains = false} = {}) {
     return null;
 }
 
-/* ---------- Probability + spread helpers ---------- */
-
-function impliedSpreadFromProb(prob) {
-    if (prob < 0.52) return 0;
-    if (prob < 0.57) return -1.25;
-    if (prob < 0.65) return -3.0;
-    if (prob < 0.70) return -4.0;
-    if (prob < 0.75) return -6.0;
-    if (prob < 0.80) return -8.0;
-    if (prob < 0.85) return -10.0;
-    return -13.0;
-}
-
+/* -------------------- Probability Helpers -------------------- */
 function parseProb(val) {
     let p = parseFloat(val);
     if (isNaN(p)) return null;
-    // If CSV stores 0–100 instead of 0–1, normalize
-    if (p > 1.0) p = p / 100.0;
+    if (p > 1) p = p / 100;
     return p;
 }
 
@@ -148,32 +137,30 @@ function formatPercent(prob) {
     return (prob * 100).toFixed(1) + "%";
 }
 
-/* ---------- Summary builder ---------- */
-
+/* -------------------- Summary Builder -------------------- */
 function buildSummary(headers, rows) {
     const idx = {};
     headers.forEach((h, i) => idx[h] = i);
 
-    // Detect key columns robustly
-    const probCol = findColumn(headers, ["winner_probability", "winprobability", "probability", "predictedwinprobability"], {contains: true});
-    const predCol = findColumn(headers, ["predicted_winner", "predictedwinner"], {contains: false});
-    const teamCol = findColumn(headers, ["team_abbr", "team", "hometeam"], {contains: false});
-    const oppCol  = findColumn(headers, ["opponent_abbr", "opponent", "awayteam"], {contains: false});
-    const bookCol = findColumn(headers, ["bookspread", "book_spread", "spread"], {contains: false});
+    // Detect columns (robust for 2025 + 2026)
+    const probCol = findColumn(headers, ["prob", "winprob", "winnerprobability"], {contains: true});
+    const predCol = findColumn(headers, ["predicted_winner", "predictedwinner"]);
+    const teamCol = findColumn(headers, ["team_abbr", "team", "hometeam"]);
+    const oppCol  = findColumn(headers, ["opponent_abbr", "opponent", "awayteam"]);
+    const bookCol = findColumn(headers, ["bookspread", "book_spread", "spread"]);
+    const modelSpreadCol = findColumn(headers, ["modelspread", "predictedspread", "model_spread", "predicted_winner_spread"], {contains: true});
 
-    if (!probCol || !predCol || !teamCol || !oppCol) {
-        return null;
-    }
+    if (!probCol || !predCol || !teamCol || !oppCol) return null;
 
     const probIdx = idx[probCol];
     const predIdx = idx[predCol];
     const teamIdx = idx[teamCol];
     const oppIdx  = idx[oppCol];
     const bookIdx = bookCol ? idx[bookCol] : null;
+    const modelSpreadIdx = modelSpreadCol ? idx[modelSpreadCol] : null;
 
-    // Group by matchup (order‑independent)
+    // Group by matchup
     const games = {};
-
     rows.forEach(r => {
         const team = r[teamIdx];
         const opp  = r[oppIdx];
@@ -189,7 +176,6 @@ function buildSummary(headers, rows) {
     let biggestDev = null;
 
     Object.values(games).forEach(gameRows => {
-        // Use first row as representative
         const r = gameRows[0];
 
         const prob = parseProb(r[probIdx]);
@@ -199,22 +185,33 @@ function buildSummary(headers, rows) {
         const team = r[teamIdx];
         const opp  = r[oppIdx];
 
+        // Read model spread from CSV if available
+        let modelSpread = null;
+        if (modelSpreadIdx !== null) {
+            const raw = parseFloat(r[modelSpreadIdx]);
+            if (!isNaN(raw)) modelSpread = raw;
+        }
+
+        // Fallback only if CSV does not contain model spread
+        if (modelSpread === null) {
+            modelSpread = 0; // neutral fallback
+        }
+
         // Most confident
         if (!mostConf || prob > mostConf.prob) {
             mostConf = { prob, team, opp, pred };
         }
 
-        // Closest to 50%
+        // Closest
         const dist = Math.abs(prob - 0.5);
         if (!closest || dist < closest.dist) {
             closest = { prob, team, opp, pred, dist };
         }
 
-        // Biggest deviation from book spread
-        if (bookIdx != null) {
+        // Biggest deviation
+        if (bookIdx !== null) {
             const book = parseFloat(r[bookIdx]);
             if (!isNaN(book)) {
-                const modelSpread = impliedSpreadFromProb(prob);
                 const dev = Math.abs(modelSpread - book);
                 if (!biggestDev || dev > biggestDev.dev) {
                     biggestDev = { prob, team, opp, pred, book, modelSpread, dev };
@@ -250,8 +247,7 @@ function renderSummaryBox(summary) {
     box.classList.remove("hidden");
 }
 
-/* ---------- Table rendering ---------- */
-
+/* -------------------- Table Rendering -------------------- */
 function renderPredictionTable(csvData) {
     const container = document.getElementById("predictionTable");
     container.innerHTML = "";
@@ -268,13 +264,13 @@ function renderPredictionTable(csvData) {
     const idx = {};
     headers.forEach((h, i) => idx[h] = i);
 
-    const probCol = findColumn(headers, ["winner_probability", "winprobability", "probability", "predictedwinprobability"], {contains: true});
-    const predCol = findColumn(headers, ["predicted_winner", "predictedwinner"], {contains: false});
+    const probCol = findColumn(headers, ["prob", "winprob", "winnerprobability"], {contains: true});
+    const predCol = findColumn(headers, ["predicted_winner", "predictedwinner"]);
 
     const probIdx = probCol != null ? idx[probCol] : null;
     const predIdx = predCol != null ? idx[predCol] : null;
 
-    // Sort rows by probability descending if available
+    // Sort rows by probability descending
     let sortedRows = rows;
     if (probIdx != null) {
         sortedRows = [...rows].sort((a, b) => {
@@ -288,7 +284,7 @@ function renderPredictionTable(csvData) {
     const summary = buildSummary(headers, sortedRows);
     renderSummaryBox(summary);
 
-    // Build table HTML
+    // Build table
     let html = "<table><thead><tr>";
     headers.forEach(h => html += `<th>${h}</th>`);
     html += "</tr></thead><tbody>";
@@ -298,13 +294,11 @@ function renderPredictionTable(csvData) {
         row.forEach((cell, colIdx) => {
             let display = cell;
 
-            // Format probability as percentage
             if (probIdx != null && colIdx === probIdx) {
                 const p = parseProb(cell);
                 display = formatPercent(p);
             }
 
-            // Bold + highlight predicted winner cell
             if (predIdx != null && colIdx === predIdx) {
                 html += `<td class="predicted-winner-cell">${display}</td>`;
             } else {
@@ -319,8 +313,7 @@ function renderPredictionTable(csvData) {
     container.innerHTML = `<div class="prediction-wrapper">${html}</div>`;
 }
 
-/* ---------- Download button ---------- */
-
+/* -------------------- Download Button -------------------- */
 function renderDownloadButton(filePath) {
     const container = document.getElementById("downloadContainer");
     container.innerHTML = "";
@@ -335,8 +328,7 @@ function renderDownloadButton(filePath) {
     container.appendChild(a);
 }
 
-/* ---------- Load prediction for season/week ---------- */
-
+/* -------------------- Load Prediction -------------------- */
 async function loadPrediction(manifest, season, week) {
     showPredictionsLoading(true);
 
@@ -368,8 +360,7 @@ async function loadPrediction(manifest, season, week) {
     }
 }
 
-/* ---------- Init ---------- */
-
+/* -------------------- Init -------------------- */
 async function init() {
     showPredictionsLoading(true);
     const manifest = await loadManifest();
