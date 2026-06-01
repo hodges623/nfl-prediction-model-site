@@ -3,7 +3,6 @@
 <head>
     <title>Historical Model Accuracy</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Chart.js for team accuracy chart -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -133,15 +132,17 @@ function renderTable(grouped, mode) {
 let teamAccuracyChart = null;
 
 function renderTeamAccuracyChart(teamStats) {
-    const labels = [];
-    const data = [];
+    // Convert to sortable array
+    const sorted = Object.entries(teamStats)
+        .filter(([team, s]) => s.games > 0)
+        .map(([team, s]) => ({
+            team,
+            accuracy: (s.correct / s.games * 100)
+        }))
+        .sort((a, b) => b.accuracy - a.accuracy);
 
-    Object.entries(teamStats).forEach(([team, stats]) => {
-        if (stats.games > 0) {
-            labels.push(team);
-            data.push((stats.correct / stats.games * 100).toFixed(1));
-        }
-    });
+    const labels = sorted.map(x => x.team);
+    const data = sorted.map(x => x.accuracy.toFixed(1));
 
     const ctx = document.getElementById("teamAccuracyChart").getContext("2d");
 
@@ -220,20 +221,17 @@ async function buildAccuracy() {
 
     // Group accuracy by season-week
     const grouped = {};
-    // Team accuracy stats
     const teamStats = {};
 
     Object.values(games).forEach(rows => {
-        const h = rows[0]; // both rows share season/week/game_id
+        const h = rows[0];
 
         const season = h.season;
         const week = h.week;
         const keyWeek = `${season}-${week}`;
 
-        // Only evaluate games that were predicted
         if (!validKeys.has(keyWeek)) return;
 
-        // Determine actual winner (look for win === "True")
         const winnerRow = rows.find(r => r.win === "True");
         const loserRow = rows.find(r => r.win === "False");
 
@@ -241,13 +239,10 @@ async function buildAccuracy() {
 
         const actualWinner = winnerRow.team_abbr;
 
-        // Build prediction lookup keys (both directions)
         const predKey = `${season}-${week}-${winnerRow.team_abbr}-${loserRow.team_abbr}`;
         const predKeyReverse = `${season}-${week}-${loserRow.team_abbr}-${winnerRow.team_abbr}`;
 
-        const pred =
-            predIndex[predKey] ||
-            predIndex[predKeyReverse];
+        const pred = predIndex[predKey] || predIndex[predKeyReverse];
 
         if (!grouped[keyWeek]) grouped[keyWeek] = {games: 0, correct: 0};
         grouped[keyWeek].games++;
@@ -255,26 +250,24 @@ async function buildAccuracy() {
         const isCorrect = pred && pred.predicted_winner === actualWinner;
         if (isCorrect) grouped[keyWeek].correct++;
 
-        // Team accuracy: count for both teams in the game
-        const teamsInGame = rows.map(r => r.team_abbr);
-        teamsInGame.forEach(team => {
+        // Team accuracy: count for both teams
+        rows.forEach(r => {
+            const team = r.team_abbr;
             if (!teamStats[team]) teamStats[team] = {games: 0, correct: 0};
-            teamStats[team].games += 1;
-            if (isCorrect) teamStats[team].correct += 1;
+            teamStats[team].games++;
+            if (isCorrect) teamStats[team].correct++;
         });
     });
 
-    // Handle view mode switching
+    // Default view: season
     const viewMode = document.getElementById("viewMode");
+    viewMode.value = "season";
+    renderTable(grouped, "season");
+
     viewMode.addEventListener("change", () => {
         renderTable(grouped, viewMode.value);
     });
 
-    // Default view: season
-    viewMode.value = "season";
-    renderTable(grouped, "season");
-
-    // Render team accuracy chart
     renderTeamAccuracyChart(teamStats);
 
     showHistoryLoading(false);
