@@ -142,8 +142,8 @@ async function buildAccuracy() {
     for (const entry of manifest.predictions_csv) {
         const rows = await loadCSV(`data/${entry.file}`);
         rows.forEach(r => {
-            r.season = entry.season;
-            r.week = entry.week;
+            r.season = Number(entry.season);
+            r.week = Number(entry.week);
 
             if (r["Home Team"]) {
                 r.team1 = r["Home Team"];
@@ -166,7 +166,15 @@ async function buildAccuracy() {
         predIndex[key2] = p;
     });
 
-    const selectedSeasons = [...document.querySelectorAll("#seasonCheckboxes input:checked")].map(cb => cb.value);
+    const seasonWeeks = {};
+    manifest.predictions_csv.forEach(p => {
+        const s = Number(p.season);
+        const w = Number(p.week);
+        if (!seasonWeeks[s]) seasonWeeks[s] = 0;
+        seasonWeeks[s] = Math.max(seasonWeeks[s], w);
+    });
+
+    const selectedSeasons = [...document.querySelectorAll("#seasonCheckboxes input:checked")].map(cb => Number(cb.value));
 
     const seasonTotals = {};
     const weeklyAccuracy = {};
@@ -180,10 +188,13 @@ async function buildAccuracy() {
 
     Object.values(games).forEach(rows => {
         const h = rows[0];
-        const season = h.season;
-        const week = h.week;
+        const season = Number(h.season);
+        const week = Number(h.week);
 
         if (!selectedSeasons.includes(season)) return;
+
+        const latestWeek = seasonWeeks[season];
+        if (week >= latestWeek) return;
 
         const winnerRow = rows.find(r => r.win === "True");
         const loserRow = rows.find(r => r.win === "False");
