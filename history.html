@@ -196,7 +196,7 @@ async function buildAccuracy() {
         if (!selectedSeasons.includes(season)) return;
 
         const latestWeek = seasonWeeks[season];
-        if (week >= latestWeek && season >= latestPredictSeason) return;
+        if (week >= latestWeek) return;
 
         const winnerRow = rows.find(r => r.win === "True");
         const loserRow = rows.find(r => r.win === "False");
