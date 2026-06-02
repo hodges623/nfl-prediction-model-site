@@ -167,11 +167,13 @@ async function buildAccuracy() {
     });
 
     const seasonWeeks = {};
+    const latestPredictSeason = 0;
     manifest.predictions_csv.forEach(p => {
         const s = Number(p.season);
         const w = Number(p.week);
         if (!seasonWeeks[s]) seasonWeeks[s] = 0;
         seasonWeeks[s] = Math.max(seasonWeeks[s], w);
+        latestPredictSeason = Math.max(latestPredictSeason, s);
     });
 
     const selectedSeasons = [...document.querySelectorAll("#seasonCheckboxes input:checked")].map(cb => Number(cb.value));
@@ -194,7 +196,7 @@ async function buildAccuracy() {
         if (!selectedSeasons.includes(season)) return;
 
         const latestWeek = seasonWeeks[season];
-        if (week >= latestWeek) return;
+        if (week >= latestWeek && season >= latestPredictSeason) return;
 
         const winnerRow = rows.find(r => r.win === "True");
         const loserRow = rows.find(r => r.win === "False");
