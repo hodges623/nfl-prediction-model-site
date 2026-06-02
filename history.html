@@ -55,31 +55,16 @@
 </div>
 
 <script>
-/* ---------------- TEAM NAME → ABBR MAPPING ---------------- */
-const TEAM_MAP = {
-    "Arizona Cardinals": "ARI", "Atlanta Falcons": "ATL", "Baltimore Ravens": "BAL",
-    "Buffalo Bills": "BUF", "Carolina Panthers": "CAR", "Chicago Bears": "CHI",
-    "Cincinnati Bengals": "CIN", "Cleveland Browns": "CLE", "Dallas Cowboys": "DAL",
-    "Denver Broncos": "DEN", "Detroit Lions": "DET", "Green Bay Packers": "GB",
-    "Houston Texans": "HOU", "Indianapolis Colts": "IND", "Jacksonville Jaguars": "JAX",
-    "Kansas City Chiefs": "KC", "Las Vegas Raiders": "LV", "Los Angeles Chargers": "LAC",
-    "Los Angeles Rams": "LAR", "Miami Dolphins": "MIA", "Minnesota Vikings": "MIN",
-    "New England Patriots": "NE", "New Orleans Saints": "NO", "New York Giants": "NYG",
-    "New York Jets": "NYJ", "Philadelphia Eagles": "PHI", "Pittsburgh Steelers": "PIT",
-    "San Francisco 49ers": "SF", "Seattle Seahawks": "SEA", "Tampa Bay Buccaneers": "TB",
-    "Tennessee Titans": "TEN", "Washington Commanders": "WAS"
-};
-
 /* ---------------- NFL TEAM COLORS ---------------- */
 const TEAM_COLORS = {
-    "ARI": "#97233F", "ATL": "#A71930", "BAL": "#241773", "BUF": "#00338D",
-    "CAR": "#0085CA", "CHI": "#0B162A", "CIN": "#FB4F14", "CLE": "#311D00",
-    "DAL": "#003594", "DEN": "#FB4F14", "DET": "#0076B6", "GB": "#203731",
-    "HOU": "#03202F", "IND": "#002C5F", "JAX": "#006778", "KC": "#E31837",
-    "LV": "#000000", "LAC": "#0080C6", "LAR": "#003594", "MIA": "#008E97",
-    "MIN": "#4F2683", "NE": "#002244", "NO": "#D3BC8D", "NYG": "#0B2265",
-    "NYJ": "#125740", "PHI": "#004C54", "PIT": "#FFB612", "SF": "#AA0000",
-    "SEA": "#002244", "TB": "#D50A0A", "TEN": "#4B92DB", "WAS": "#5A1414"
+    "ARI": "#97233F","ATL": "#A71930","BAL": "#241773","BUF": "#00338D",
+    "CAR": "#0085CA","CHI": "#0B162A","CIN": "#FB4F14","CLE": "#311D00",
+    "DAL": "#003594","DEN": "#FB4F14","DET": "#0076B6","GB": "#203731",
+    "HOU": "#03202F","IND": "#002C5F","JAX": "#006778","KC": "#E31837",
+    "LV": "#000000","LAC": "#0080C6","LAR": "#003594","MIA": "#008E97",
+    "MIN": "#4F2683","NE": "#002244","NO": "#D3BC8D","NYG": "#0B2265",
+    "NYJ": "#125740","PHI": "#004C54","PIT": "#FFB612","SF": "#AA0000",
+    "SEA": "#002244","TB": "#D50A0A","TEN": "#4B92DB","WAS": "#5A1414"
 };
 
 /* ---------------- CSV Loader ---------------- */
@@ -114,7 +99,6 @@ function buildSeasonCheckboxes(manifest) {
     const container = document.getElementById("seasonCheckboxes");
     container.innerHTML = "<strong>Select Seasons:</strong><br><br>";
 
-    // Determine latest week per season
     const seasonWeeks = {};
     manifest.predictions_csv.forEach(p => {
         const s = Number(p.season);
@@ -123,10 +107,9 @@ function buildSeasonCheckboxes(manifest) {
         seasonWeeks[s] = Math.max(seasonWeeks[s], w);
     });
 
-    // Exclude seasons where max week == 1
     const validSeasons = Object.keys(seasonWeeks)
         .filter(s => seasonWeeks[s] > 1)
-        .sort();
+        .sort((a,b) => Number(a) - Number(b));
 
     validSeasons.forEach(season => {
         const id = `season_${season}`;
@@ -154,38 +137,41 @@ async function buildAccuracy() {
     const manifest = await loadManifest();
     const history = await loadCSV("data/nfl_historical_matchup_data.csv");
 
-    // Load all predictions
     const predictions = [];
+
     for (const entry of manifest.predictions_csv) {
         const rows = await loadCSV(`data/${entry.file}`);
         rows.forEach(r => {
             r.season = entry.season;
             r.week = entry.week;
+
+            if (r["Home Team"]) {
+                r.team1 = r["Home Team"];
+                r.team2 = r["Away Team"];
+                r.predicted = r["Predicted Winner"];
+            } else {
+                r.team1 = r.team_abbr;
+                r.team2 = r.opponent_abbr;
+                r.predicted = r.predicted_winner;
+            }
         });
         predictions.push(...rows);
     }
 
-    // Convert prediction team names → abbreviations
-    predictions.forEach(p => {
-        p.home_abbr = TEAM_MAP[p["Home Team"]];
-        p.away_abbr = TEAM_MAP[p["Away Team"]];
-    });
-
-    // Index predictions
     const predIndex = {};
     predictions.forEach(p => {
-        const key = `${p.season}-${p.week}-${p.home_abbr}-${p.away_abbr}`;
-        predIndex[key] = p;
+        const key1 = `${p.season}-${p.week}-${p.team1}-${p.team2}`;
+        const key2 = `${p.season}-${p.week}-${p.team2}-${p.team1}`;
+        predIndex[key1] = p;
+        predIndex[key2] = p;
     });
 
-    // Selected seasons
     const selectedSeasons = [...document.querySelectorAll("#seasonCheckboxes input:checked")].map(cb => cb.value);
 
     const seasonTotals = {};
     const weeklyAccuracy = {};
     const teamStats = {};
 
-    // Group historical rows by game_id
     const games = {};
     history.forEach(h => {
         if (!games[h.game_id]) games[h.game_id] = [];
@@ -205,23 +191,20 @@ async function buildAccuracy() {
 
         const actualWinner = winnerRow.team_abbr;
 
-        const predKey = `${season}-${week}-${winnerRow.team_abbr}-${loserRow.team_abbr}`;
-        const predKeyReverse = `${season}-${week}-${loserRow.team_abbr}-${winnerRow.team_abbr}`;
-        const pred = predIndex[predKey] || predIndex[predKeyReverse];
+        const key = `${season}-${week}-${winnerRow.team_abbr}-${loserRow.team_abbr}`;
+        const pred = predIndex[key];
 
         if (!seasonTotals[season]) seasonTotals[season] = {games: 0, correct: 0};
         seasonTotals[season].games++;
 
-        const isCorrect = pred && pred["Predicted Winner"] === actualWinner;
+        const isCorrect = pred && pred.predicted === actualWinner;
         if (isCorrect) seasonTotals[season].correct++;
 
-        // Weekly accuracy
         const wkKey = `Week ${week}`;
         if (!weeklyAccuracy[wkKey]) weeklyAccuracy[wkKey] = {games: 0, correct: 0};
         weeklyAccuracy[wkKey].games++;
         if (isCorrect) weeklyAccuracy[wkKey].correct++;
 
-        // Team accuracy
         rows.forEach(r => {
             const team = r.team_abbr;
             if (!teamStats[team]) teamStats[team] = {games: 0, correct: 0};
@@ -251,11 +234,7 @@ async function buildAccuracy() {
     const weeklyData = [];
 
     Object.entries(weeklyAccuracy)
-        .sort(([a], [b]) => {
-            const wa = Number(a.replace("Week ", ""));
-            const wb = Number(b.replace("Week ", ""));
-            return wa - wb;
-        })
+        .sort(([a],[b]) => Number(a.replace("Week ","")) - Number(b.replace("Week ","")))
         .forEach(([key, stats]) => {
             weeklyLabels.push(key);
             weeklyData.push((stats.correct / stats.games * 100).toFixed(1));
