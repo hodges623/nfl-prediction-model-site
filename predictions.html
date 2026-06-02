@@ -104,7 +104,9 @@ async function loadCSV(path) {
     const text = await res.text();
     const rows = text.trim().split("\n").map(r => r.split(","));
     const headers = rows.shift();
-    return { headers, rows };
+    const data = rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
+
+    return data;
 }
 
 /* -------------------- Column Detection Helpers -------------------- */
@@ -137,103 +139,91 @@ function formatPercent(prob) {
     return (prob * 100).toFixed(1) + "%";
 }
 
+/* -------------------- Normalize 2025 Rows -------------------- */
+function normalizeRow(row) {
+    // 2025 format → convert to 2026 format
+    if (row["team_abbr"]) {
+        row["Home Team"] = row["team_abbr"];
+        row["Away Team"] = row["opponent_abbr"];
+        row["Predicted Winner"] = row["predicted_winner"];
+        row["Win Probability"] = row["winner_probability"];
+
+        delete row["team_abbr"];
+        delete row["opponent_abbr"];
+        delete row["predicted_winner"];
+        delete row["winner_probability"];
+        delete row["season"];
+        delete row["week"];
+    }
+    return row;
+}
+
 /* -------------------- Summary Builder -------------------- */
-function buildSummary(headers, rows) {
-    const idx = {};
-    headers.forEach((h, i) => idx[h] = i);
+function buildSummary(rows) {
+    if (!rows || rows.length === 0) return null;
 
-    // EXACT 2026 column names + 2025 compatibility
-    const probCol = findColumn(headers, ["winprobability", "winnerprobability", "probability", "prob"], {contains: true});
-    const predCol = findColumn(headers, ["predictedwinner", "predicted_winner"]);
-    const homeCol = findColumn(headers, ["hometeam", "home team"]);
-    const awayCol = findColumn(headers, ["awayteam", "away team"]);
-    const bookCol = findColumn(headers, ["bookspread", "book spread"]);
-    const modelSpreadCol = findColumn(headers, ["winspread", "win spread"]);
-
-    if (!probCol || !predCol || !homeCol || !awayCol) return null;
-
-    const probIdx = idx[probCol];
-    const predIdx = idx[predCol];
-    const homeIdx = idx[homeCol];
-    const awayIdx = idx[awayCol];
-    const bookIdx = bookCol ? idx[bookCol] : null;
-    const modelSpreadIdx = modelSpreadCol ? idx[modelSpreadCol] : null;
-
-    // Group by matchup
-    const games = {};
-    rows.forEach(r => {
-        const home = r[homeIdx];
-        const away = r[awayIdx];
-        if (!home || !away) return;
-
-        const key = [home, away].sort().join("|");
-        if (!games[key]) games[key] = [];
-        games[key].push(r);
-    });
-
-    let mostConf = null;
-    let closest = null;
+    const mostConf = {prob: -1};
+    const closest = {dist: 999};
     let biggestDev = null;
 
-    Object.values(games).forEach(gameRows => {
-        const r = gameRows[0];
-
-        const prob = parseProb(r[probIdx]);
+    rows.forEach(r => {
+        const prob = parseProb(r["Win Probability"]);
         if (prob == null) return;
 
-        const pred = r[predIdx];
-        const home = r[homeIdx];
-        const away = r[awayIdx];
-
-        // Read model spread from CSV
-        let modelSpread = null;
-        if (modelSpreadIdx !== null) {
-            const raw = parseFloat(r[modelSpreadIdx]);
-            if (!isNaN(raw)) modelSpread = raw;
-        }
+        const home = r["Home Team"];
+        const away = r["Away Team"];
+        const pred = r["Predicted Winner"];
 
         // Most confident
-        if (!mostConf || prob > mostConf.prob) {
-            mostConf = { prob, home, away, pred };
+        if (prob > mostConf.prob) {
+            mostConf.prob = prob;
+            mostConf.home = home;
+            mostConf.away = away;
+            mostConf.pred = pred;
         }
 
-        // Closest
+        // Closest to 50%
         const dist = Math.abs(prob - 0.5);
-        if (!closest || dist < closest.dist) {
-            closest = { prob, home, away, pred, dist };
+        if (dist < closest.dist) {
+            closest.dist = dist;
+            closest.prob = prob;
+            closest.home = home;
+            closest.away = away;
+            closest.pred = pred;
         }
 
-        // Biggest deviation only if BOTH spreads exist
-        if (bookIdx !== null && modelSpread !== null) {
-            const book = parseFloat(r[bookIdx]);
-            if (!isNaN(book)) {
+        // Only 2026+ have spreads
+        if (r["Win Spread"] && r["Book Spread"]) {
+            const modelSpread = parseFloat(r["Win Spread"]);
+            const book = parseFloat(r["Book Spread"]);
+            if (!isNaN(modelSpread) && !isNaN(book)) {
                 const dev = Math.abs(modelSpread - book);
                 if (!biggestDev || dev > biggestDev.dev) {
-                    biggestDev = { prob, home, away, pred, book, modelSpread, dev };
+                    biggestDev = {home, away, modelSpread, book, dev};
                 }
             }
         }
     });
 
-    return { mostConf, closest, biggestDev };
+    return {mostConf, closest, biggestDev};
 }
 
 function renderSummaryBox(summary) {
     const box = document.getElementById("summaryBox");
 
-    if (!summary || !summary.mostConf || !summary.closest) {
+    if (!summary) {
         box.classList.add("hidden");
-        box.innerHTML = "";
         return;
     }
 
-    const { mostConf, closest, biggestDev } = summary;
+    const {mostConf, closest, biggestDev} = summary;
 
     let html = "<h2>Week Summary</h2>";
 
     html += `<div class="summary-item"><strong>Most Confident Matchup:</strong> ${mostConf.home} vs ${mostConf.away} — ${formatPercent(mostConf.prob)} (Predicted: ${mostConf.pred})</div>`;
     html += `<div class="summary-item"><strong>Closest Matchup:</strong> ${closest.home} vs ${closest.away} — ${formatPercent(closest.prob)} (Predicted: ${closest.pred})</div>`;
 
+    // Only show deviation for 2026+
     if (biggestDev) {
         html += `<div class="summary-item"><strong>Biggest Deviation from Book Spread:</strong> ${biggestDev.home} vs ${biggestDev.away} — Win Spread: ${biggestDev.modelSpread.toFixed(1)}, Book Spread: ${biggestDev.book.toFixed(1)} (Δ = ${biggestDev.dev.toFixed(1)})</div>`;
     }
@@ -243,40 +233,33 @@ function renderSummaryBox(summary) {
 }
 
 /* -------------------- Table Rendering -------------------- */
-function renderPredictionTable(csvData) {
+function renderPredictionTable(rows) {
     const container = document.getElementById("predictionTable");
     container.innerHTML = "";
 
-    if (!csvData || csvData.rows.length === 0) {
+    if (!rows || rows.length === 0) {
         container.innerHTML = "<p>No prediction data available for this week.</p>";
         document.getElementById("summaryBox").classList.add("hidden");
         return;
     }
 
-    const headers = csvData.headers;
-    const rows = csvData.rows;
+    // Normalize all rows
+    rows = rows.map(normalizeRow);
 
-    const idx = {};
-    headers.forEach((h, i) => idx[h] = i);
+    // Determine headers after normalization
+    const headers = Object.keys(rows[0]).filter(h =>
+        !["season", "week"].includes(h.toLowerCase())
+    );
 
-    const probCol = findColumn(headers, ["winprobability", "probability", "prob"], {contains: true});
-    const predCol = findColumn(headers, ["predictedwinner", "predicted_winner"]);
-
-    const probIdx = probCol != null ? idx[probCol] : null;
-    const predIdx = predCol != null ? idx[predCol] : null;
-
-    // Sort rows by probability descending
-    let sortedRows = rows;
-    if (probIdx != null) {
-        sortedRows = [...rows].sort((a, b) => {
-            const pa = parseProb(a[probIdx]) ?? -1;
-            const pb = parseProb(b[probIdx]) ?? -1;
-            return pb - pa;
-        });
-    }
+    // Sort by Win Probability
+    rows.sort((a, b) => {
+        const pa = parseProb(a["Win Probability"]) ?? -1;
+        const pb = parseProb(b["Win Probability"]) ?? -1;
+        return pb - pa;
+    });
 
     // Build summary
-    const summary = buildSummary(headers, sortedRows);
+    const summary = buildSummary(rows);
     renderSummaryBox(summary);
 
     // Build table
@@ -284,17 +267,16 @@ function renderPredictionTable(csvData) {
     headers.forEach(h => html += `<th>${h}</th>`);
     html += "</tr></thead><tbody>";
 
-    sortedRows.forEach(row => {
+    rows.forEach(row => {
         html += "<tr>";
-        row.forEach((cell, colIdx) => {
-            let display = cell;
+        headers.forEach(h => {
+            let display = row[h];
 
-            if (probIdx != null && colIdx === probIdx) {
-                const p = parseProb(cell);
-                display = formatPercent(p);
+            if (h === "Win Probability") {
+                display = formatPercent(parseProb(display));
             }
 
-            if (predIdx != null && colIdx === predIdx) {
+            if (h === "Predicted Winner") {
                 html += `<td class="predicted-winner-cell">${display}</td>`;
             } else {
                 html += `<td>${display}</td>`;
