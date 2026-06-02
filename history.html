@@ -211,10 +211,10 @@ async function buildAccuracy() {
         const isCorrect = pred && pred.predicted === actualWinner;
         if (isCorrect) seasonTotals[season].correct++;
 
-        const wkKey = `Week ${week}`;
-        if (!weeklyAccuracy[wkKey]) weeklyAccuracy[wkKey] = {games: 0, correct: 0};
-        weeklyAccuracy[wkKey].games++;
-        if (isCorrect) weeklyAccuracy[wkKey].correct++;
+        if (!weeklyAccuracy[season]) weeklyAccuracy[season] = {};
+        if (!weeklyAccuracy[season][week]) weeklyAccuracy[season][week] = {games: 0, correct: 0};
+        weeklyAccuracy[season][week].games++;
+        if (isCorrect) weeklyAccuracy[season][week].correct++;
 
         rows.forEach(r => {
             const team = r.team_abbr;
@@ -241,15 +241,28 @@ async function buildAccuracy() {
     });
 
     /* -------- Render Weekly Line Chart -------- */
-    const weeklyLabels = [];
-    const weeklyData = [];
+    const allWeeks = [...new Set(
+        Object.values(weeklyAccuracy)
+            .flatMap(seasonData => Object.keys(seasonData).map(Number))
+    )].sort((a,b) => a - b);
 
-    Object.entries(weeklyAccuracy)
-        .sort(([a],[b]) => Number(a.replace("Week ","")) - Number(b.replace("Week ","")))
-        .forEach(([key, stats]) => {
-            weeklyLabels.push(key);
-            weeklyData.push((stats.correct / stats.games * 100).toFixed(1));
-        });
+    const datasets = Object.keys(weeklyAccuracy).map((season, idx) => {
+        const colorList = ["#4da3ff", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"];
+        const color = colorList[idx % colorList.length];
+
+        return {
+            label: season,
+            data: allWeeks.map(w => {
+                const stats = weeklyAccuracy[season][w];
+                return stats ? (stats.correct / stats.games * 100).toFixed(1) : null;
+            }),
+            borderColor: color,
+            backgroundColor: color + "33",
+            borderWidth: 2,
+            spanGaps: true,
+            tension: 0.2
+        };
+    });
 
     const ctx1 = document.getElementById("weeklyAccuracyChart").getContext("2d");
     if (weeklyChart) weeklyChart.destroy();
@@ -257,15 +270,8 @@ async function buildAccuracy() {
     weeklyChart = new Chart(ctx1, {
         type: 'line',
         data: {
-            labels: weeklyLabels,
-            datasets: [{
-                label: "Accuracy (%)",
-                data: weeklyData,
-                borderColor: "#4da3ff",
-                backgroundColor: "rgba(77,163,255,0.2)",
-                borderWidth: 2,
-                tension: 0.2
-            }]
+            labels: allWeeks.map(w => `Week ${w}`),
+            datasets: datasets
         },
         options: {
             scales: {
