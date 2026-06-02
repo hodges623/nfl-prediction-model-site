@@ -18,14 +18,8 @@
 
     <h1>Historical Model Accuracy</h1>
 
-    <!-- Season Selector -->
-    <div style="margin-bottom: 15px;">
-        <label for="seasonSelect" style="font-weight: bold;">Select Seasons:</label>
-        <select id="seasonSelect" multiple size="5" style="margin-left: 10px; min-width: 120px;"></select>
-        <div style="font-size: 0.85rem; color: #bbb; margin-top: 5px;">
-            Hold CTRL (Windows) or CMD (Mac) to select multiple seasons
-        </div>
-    </div>
+    <!-- Season Checkbox Selector -->
+    <div id="seasonCheckboxes" style="margin-bottom: 20px;"></div>
 
     <!-- Loading indicator -->
     <div id="historyLoading" class="loading">
@@ -63,38 +57,14 @@
 <script>
 /* ---------------- NFL TEAM COLORS ---------------- */
 const TEAM_COLORS = {
-    "ARI": "#97233F",
-    "ATL": "#A71930",
-    "BAL": "#241773",
-    "BUF": "#00338D",
-    "CAR": "#0085CA",
-    "CHI": "#0B162A",
-    "CIN": "#FB4F14",
-    "CLE": "#311D00",
-    "DAL": "#003594",
-    "DEN": "#FB4F14",
-    "DET": "#0076B6",
-    "GB":  "#203731",
-    "HOU": "#03202F",
-    "IND": "#002C5F",
-    "JAX": "#006778",
-    "KC":  "#E31837",
-    "LV":  "#000000",
-    "LAC": "#0080C6",
-    "LAR": "#003594",
-    "MIA": "#008E97",
-    "MIN": "#4F2683",
-    "NE":  "#002244",
-    "NO":  "#D3BC8D",
-    "NYG": "#0B2265",
-    "NYJ": "#125740",
-    "PHI": "#004C54",
-    "PIT": "#FFB612",
-    "SF":  "#AA0000",
-    "SEA": "#002244",
-    "TB":  "#D50A0A",
-    "TEN": "#4B92DB",
-    "WAS": "#5A1414"
+    "ARI": "#97233F", "ATL": "#A71930", "BAL": "#241773", "BUF": "#00338D",
+    "CAR": "#0085CA", "CHI": "#0B162A", "CIN": "#FB4F14", "CLE": "#311D00",
+    "DAL": "#003594", "DEN": "#FB4F14", "DET": "#0076B6", "GB": "#203731",
+    "HOU": "#03202F", "IND": "#002C5F", "JAX": "#006778", "KC": "#E31837",
+    "LV": "#000000", "LAC": "#0080C6", "LAR": "#003594", "MIA": "#008E97",
+    "MIN": "#4F2683", "NE": "#002244", "NO": "#D3BC8D", "NYG": "#0B2265",
+    "NYJ": "#125740", "PHI": "#004C54", "PIT": "#FFB612", "SF": "#AA0000",
+    "SEA": "#002244", "TB": "#D50A0A", "TEN": "#4B92DB", "WAS": "#5A1414"
 };
 
 /* ---------------- CSV Loader ---------------- */
@@ -124,23 +94,26 @@ function showHistoryLoading(show) {
     }
 }
 
-/* ---------------- Populate Season Selector ---------------- */
-function populateSeasonSelector(manifest) {
+/* ---------------- Season Checkbox Builder ---------------- */
+function buildSeasonCheckboxes(manifest) {
+    const container = document.getElementById("seasonCheckboxes");
+    container.innerHTML = "<strong>Select Seasons:</strong><br><br>";
+
     const seasons = [...new Set(manifest.predictions_csv.map(p => Number(p.season)))].sort();
-    const select = document.getElementById("seasonSelect");
-    select.innerHTML = "";
 
     seasons.forEach(season => {
-        const opt = document.createElement("option");
-        opt.value = season;
-        opt.textContent = season;
-        select.appendChild(opt);
+        const id = `season_${season}`;
+        container.innerHTML += `
+            <label style="margin-right: 15px;">
+                <input type="checkbox" id="${id}" value="${season}" checked>
+                ${season}
+            </label>
+        `;
     });
 
-    // Default: select all seasons
-    for (let i = 0; i < select.options.length; i++) {
-        select.options[i].selected = true;
-    }
+    container.querySelectorAll("input").forEach(cb => {
+        cb.addEventListener("change", buildAccuracy);
+    });
 }
 
 /* ---------------- Charts ---------------- */
@@ -158,15 +131,26 @@ async function buildAccuracy() {
     const predictions = [];
     for (const entry of manifest.predictions_csv) {
         const rows = await loadCSV(`data/${entry.file}`);
+        rows.forEach(r => {
+            r.season = entry.season;
+            r.week = entry.week;
+        });
         predictions.push(...rows);
     }
 
-    // Index predictions
+    // Index predictions by season-week-home-away
     const predIndex = {};
     predictions.forEach(p => {
         const key = `${p.season}-${p.week}-${p["Home Team"]}-${p["Away Team"]}`;
         predIndex[key] = p;
     });
+
+    // Selected seasons
+    const selectedSeasons = [...document.querySelectorAll("#seasonCheckboxes input:checked")].map(cb => cb.value);
+
+    const seasonTotals = {};
+    const weeklyAccuracy = {};
+    const teamStats = {};
 
     // Group historical rows by game_id
     const games = {};
@@ -174,13 +158,6 @@ async function buildAccuracy() {
         if (!games[h.game_id]) games[h.game_id] = [];
         games[h.game_id].push(h);
     });
-
-    // Selected seasons
-    const selectedSeasons = [...document.getElementById("seasonSelect").selectedOptions].map(o => o.value);
-
-    const seasonTotals = {};
-    const weeklyAccuracy = {};
-    const teamStats = {};
 
     Object.values(games).forEach(rows => {
         const h = rows[0];
@@ -206,7 +183,7 @@ async function buildAccuracy() {
         if (isCorrect) seasonTotals[season].correct++;
 
         // Weekly accuracy
-        const wkKey = `${season}-${week}`;
+        const wkKey = `${season}-W${week}`;
         if (!weeklyAccuracy[wkKey]) weeklyAccuracy[wkKey] = {games: 0, correct: 0};
         weeklyAccuracy[wkKey].games++;
         if (isCorrect) weeklyAccuracy[wkKey].correct++;
@@ -311,10 +288,7 @@ async function buildAccuracy() {
 /* ---------------- Init ---------------- */
 async function init() {
     const manifest = await loadManifest();
-    populateSeasonSelector(manifest);
-
-    document.getElementById("seasonSelect").addEventListener("change", buildAccuracy);
-
+    buildSeasonCheckboxes(manifest);
     await buildAccuracy();
 }
 
