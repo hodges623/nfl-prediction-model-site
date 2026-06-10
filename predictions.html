@@ -42,33 +42,24 @@
             flex-direction: column;
             gap: 10px;
         }
-        .game-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .team-logos {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+
         .team-logo {
-            width: 42px;
-            height: 42px;
+            width: 48px;
+            height: 48px;
             object-fit: contain;
         }
-        .matchup-teams {
-            font-weight: 600;
-            font-size: 1.05rem;
-        }
-        .prob-pill {
-            padding: 4px 10px;
+
+        .predicted-winner-tag {
+            display: inline-block;
+            padding: 2px 8px;
             border-radius: 999px;
-            font-size: 0.85rem;
-            background: rgba(56,189,248,0.15);
-            border: 1px solid rgba(56,189,248,0.6);
-            color: #e5f6ff;
+            font-size: 0.75rem;
+            background: rgba(52,211,153,0.15);
+            border: 1px solid rgba(52,211,153,0.7);
+            color: #bbf7d0;
+            margin-top: 4px;
         }
+
         .game-card-row {
             display: flex;
             justify-content: space-between;
@@ -80,16 +71,7 @@
         .game-card-value {
             font-weight: 500;
         }
-        .predicted-winner-tag {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            background: rgba(52,211,153,0.15);
-            border: 1px solid rgba(52,211,153,0.7);
-            color: #bbf7d0;
-            margin-left: 6px;
-        }
+
         .edge-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -384,29 +366,36 @@ function renderCardView(rows) {
 
         html += `<div class="game-card">`;
 
+        /* NEW CARD LAYOUT */
         html += `
-            <div class="game-card-header">
-                <div class="team-logos">
-                    <img class="team-logo" src="assets/logos/${home}.png">
-                    <img class="team-logo" src="assets/logos/${away}.png">
+            <div style="display:flex; justify-content:center; text-align:center; width:100%; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; justify-content:center; gap:28px; width:100%;">
+
+                    <!-- Away Team -->
+                    <div style="display:flex; flex-direction:column; align-items:center;">
+                        <img class="team-logo" src="assets/logos/${away}.png">
+                        <div style="margin-top:4px; font-weight:600;">${away}</div>
+                        ${pred === away ? `<div class="predicted-winner-tag">Model Pick</div>` : ""}
+                    </div>
+
+                    <!-- @ Symbol -->
+                    <div style="font-size:1.6rem; font-weight:bold; color:#e5e7eb;">@</div>
+
+                    <!-- Home Team -->
+                    <div style="display:flex; flex-direction:column; align-items:center;">
+                        <img class="team-logo" src="assets/logos/${home}.png">
+                        <div style="margin-top:4px; font-weight:600;">${home}</div>
+                        ${pred === home ? `<div class="predicted-winner-tag">Model Pick</div>` : ""}
+                    </div>
+
                 </div>
-                <div class="prob-pill">${probText}</div>
             </div>
         `;
 
         html += `
             <div class="game-card-row">
-                <div class="game-card-label">Matchup</div>
-                <div class="game-card-value">${home} vs ${away}</div>
-            </div>
-        `;
-
-        html += `
-            <div class="game-card-row">
-                <div class="game-card-label">Predicted Winner</div>
-                <div class="game-card-value">${pred}
-                    <span class="predicted-winner-tag">Model Pick</span>
-                </div>
+                <div class="game-card-label">Win Probability</div>
+                <div class="game-card-value">${probText}</div>
             </div>
         `;
 
@@ -421,6 +410,7 @@ function renderCardView(rows) {
                     <div class="game-card-value">${bookSpread.toFixed(1)}</div>
                 </div>
             `;
+
             if (edgeLabel) {
                 html += `
                     <div class="game-card-row">
