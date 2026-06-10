@@ -3,12 +3,139 @@
 <head>
     <title>Modeled NFL Predictions</title>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* --- CARD VIEW STYLES --- */
+        .view-toggle {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .toggle-btn {
+            padding: 8px 16px;
+            margin: 0 6px;
+            border-radius: 6px;
+            border: 1px solid #4da3ff;
+            background: #1f2933;
+            color: #e5e7eb;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .toggle-btn.active {
+            background: #4da3ff;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-top: 16px;
+        }
+        .game-card {
+            background: #1f2933;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+            border: 1px solid #3b4a5a;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .game-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .team-logos {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .team-logo {
+            width: 42px;
+            height: 42px;
+            object-fit: contain;
+        }
+        .matchup-teams {
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+        .prob-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            background: rgba(56,189,248,0.15);
+            border: 1px solid rgba(56,189,248,0.6);
+            color: #e5f6ff;
+        }
+        .game-card-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        .game-card-label {
+            color: #9ca3af;
+        }
+        .game-card-value {
+            font-weight: 500;
+        }
+        .predicted-winner-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(52,211,153,0.15);
+            border: 1px solid rgba(52,211,153,0.7);
+            color: #bbf7d0;
+            margin-left: 6px;
+        }
+        .edge-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            margin-left: 6px;
+        }
+        .edge-with {
+            background: rgba(52,211,153,0.15);
+            border: 1px solid rgba(52,211,153,0.7);
+            color: #bbf7d0;
+        }
+        .edge-against {
+            background: rgba(248,113,113,0.15);
+            border: 1px solid rgba(248,113,113,0.7);
+            color: #fecaca;
+        }
+
+        /* --- TABLE VIEW STYLES --- */
+        #tableViewWrapper {
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #3b4a5a;
+        }
+        th {
+            background: #111827;
+            text-align: left;
+        }
+        .predicted-winner-cell {
+            font-weight: bold;
+            background: rgba(52,211,153,0.15);
+        }
+    </style>
 </head>
+
 <body>
 
 <div class="container">
 
-    <!-- Navigation -->
     <div style="margin-bottom: 20px;">
         <a href="index.html" style="font-size: 1.1rem; text-decoration: none;">
             ← Back to Main Page
@@ -25,25 +152,27 @@
         <select id="weekSelect" style="margin-left: 10px;"></select>
     </div>
 
-    <!-- Loading indicator -->
+    <div class="view-toggle">
+        <button id="cardViewBtn" class="toggle-btn active">Card View</button>
+        <button id="tableViewBtn" class="toggle-btn">Table View</button>
+    </div>
+
     <div id="predictionsLoading" class="loading hidden">
         <div class="loader-spinner"></div>
         <div>Loading predictions...</div>
     </div>
 
-    <!-- Summary box -->
     <div id="summaryBox" class="summary-box hidden"></div>
 
-    <!-- Table -->
-    <div id="predictionTable"></div>
+    <div id="cardViewWrapper"></div>
 
-    <!-- Download button at bottom -->
+    <div id="tableViewWrapper" class="hidden"></div>
+
     <div id="downloadContainer" style="text-align: right; margin-top: 10px;"></div>
 
 </div>
 
 <script>
-/* -------------------- Manifest Loader -------------------- */
 async function loadManifest() {
     const res = await fetch("html/manifest.json");
     return await res.json();
@@ -55,7 +184,6 @@ function showPredictionsLoading(show) {
     else el.classList.add("hidden");
 }
 
-/* -------------------- Dropdown Setup -------------------- */
 function populateSeasonDropdown(manifest) {
     const seasons = [...new Set(manifest.predictions_csv.map(item => Number(item.season)))].sort((a,b) => a - b);
     const seasonSelect = document.getElementById("seasonSelect");
@@ -98,35 +226,14 @@ function getLatestWeek(manifest, season) {
     );
 }
 
-/* -------------------- CSV Loader -------------------- */
 async function loadCSV(path) {
     const res = await fetch(path);
     const text = await res.text();
     const rows = text.trim().split("\n").map(r => r.split(","));
     const headers = rows.shift();
-    const data = rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
-
-    return data;
+    return rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
 }
 
-/* -------------------- Column Detection Helpers -------------------- */
-function normalizeHeader(h) {
-    return h.toLowerCase().replace(/[\s_]/g, "");
-}
-
-function findColumn(headers, candidates, {contains = false} = {}) {
-    const norm = headers.map(h => normalizeHeader(h));
-    for (const cand of candidates) {
-        const nc = cand.toLowerCase().replace(/[\s_]/g, "");
-        for (let i = 0; i < norm.length; i++) {
-            if (!contains && norm[i] === nc) return headers[i];
-            if (contains && norm[i].includes(nc)) return headers[i];
-        }
-    }
-    return null;
-}
-
-/* -------------------- Probability Helpers -------------------- */
 function parseProb(val) {
     let p = parseFloat(val);
     if (isNaN(p)) return null;
@@ -139,9 +246,7 @@ function formatPercent(prob) {
     return (prob * 100).toFixed(1) + "%";
 }
 
-/* -------------------- Normalize 2025 Rows -------------------- */
 function normalizeRow(row) {
-    // 2025 format → convert to 2026 format
     if (row["team_abbr"]) {
         row["Home Team"] = row["team_abbr"];
         row["Away Team"] = row["opponent_abbr"];
@@ -158,7 +263,6 @@ function normalizeRow(row) {
     return row;
 }
 
-/* -------------------- Summary Builder -------------------- */
 function buildSummary(rows) {
     if (!rows || rows.length === 0) return null;
 
@@ -174,7 +278,6 @@ function buildSummary(rows) {
         const away = r["Away Team"];
         const pred = r["Predicted Winner"];
 
-        // Most confident
         if (prob > mostConf.prob) {
             mostConf.prob = prob;
             mostConf.home = home;
@@ -182,7 +285,6 @@ function buildSummary(rows) {
             mostConf.pred = pred;
         }
 
-        // Closest to 50%
         const dist = Math.abs(prob - 0.5);
         if (dist < closest.dist) {
             closest.dist = dist;
@@ -192,7 +294,6 @@ function buildSummary(rows) {
             closest.pred = pred;
         }
 
-        // Only 2026+ have spreads
         if (r["Win Spread"] && r["Book Spread"]) {
             const modelSpread = parseFloat(r["Win Spread"]);
             const book = parseFloat(r["Book Spread"]);
@@ -223,7 +324,6 @@ function renderSummaryBox(summary) {
     html += `<div class="summary-item"><strong>Most Confident Matchup:</strong> ${mostConf.home} vs ${mostConf.away} — ${formatPercent(mostConf.prob)} (Predicted: ${mostConf.pred})</div>`;
     html += `<div class="summary-item"><strong>Closest Matchup:</strong> ${closest.home} vs ${closest.away} — ${formatPercent(closest.prob)} (Predicted: ${closest.pred})</div>`;
 
-    // Only show deviation for 2026+
     if (biggestDev) {
         html += `<div class="summary-item"><strong>Biggest Deviation from Book Spread:</strong> ${biggestDev.home} vs ${biggestDev.away} — Win Spread: ${biggestDev.modelSpread.toFixed(1)}, Book Spread: ${biggestDev.book.toFixed(1)} (Δ = ${biggestDev.dev.toFixed(1)})</div>`;
     }
@@ -232,9 +332,9 @@ function renderSummaryBox(summary) {
     box.classList.remove("hidden");
 }
 
-/* -------------------- Table Rendering -------------------- */
-function renderPredictionTable(rows) {
-    const container = document.getElementById("predictionTable");
+/* -------------------- CARD VIEW -------------------- */
+function renderCardView(rows) {
+    const container = document.getElementById("cardViewWrapper");
     container.innerHTML = "";
 
     if (!rows || rows.length === 0) {
@@ -243,26 +343,125 @@ function renderPredictionTable(rows) {
         return;
     }
 
-    // Normalize all rows
     rows = rows.map(normalizeRow);
 
-    // Determine headers after normalization
-    const headers = Object.keys(rows[0]).filter(h =>
-        !["season", "week"].includes(h.toLowerCase())
-    );
-
-    // Sort by Win Probability
     rows.sort((a, b) => {
         const pa = parseProb(a["Win Probability"]) ?? -1;
         const pb = parseProb(b["Win Probability"]) ?? -1;
         return pb - pa;
     });
 
-    // Build summary
     const summary = buildSummary(rows);
     renderSummaryBox(summary);
 
-    // Build table
+    let html = '<div class="cards-grid">';
+
+    rows.forEach(row => {
+        const home = row["Home Team"];
+        const away = row["Away Team"];
+        const pred = row["Predicted Winner"];
+        const prob = parseProb(row["Win Probability"]);
+        const probText = formatPercent(prob);
+
+        const winSpread = row["Win Spread"] ? parseFloat(row["Win Spread"]) : null;
+        const bookSpread = row["Book Spread"] ? parseFloat(row["Book Spread"]) : null;
+        const versus = row["Versus Book"] || null;
+
+        const hasSpreads = winSpread !== null && !isNaN(winSpread) && bookSpread !== null && !isNaN(bookSpread);
+
+        let edgeClass = "";
+        let edgeLabel = "";
+        if (versus) {
+            const v = String(versus).toLowerCase();
+            if (v.includes("with")) {
+                edgeClass = "edge-with";
+                edgeLabel = "With Book";
+            } else if (v.includes("against")) {
+                edgeClass = "edge-against";
+                edgeLabel = "Against Book";
+            }
+        }
+
+        html += `<div class="game-card">`;
+
+        html += `
+            <div class="game-card-header">
+                <div class="team-logos">
+                    <img class="team-logo" src="/assets/logos/${home}.png">
+                    <img class="team-logo" src="/assets/logos/${away}.png">
+                </div>
+                <div class="prob-pill">${probText}</div>
+            </div>
+        `;
+
+        html += `
+            <div class="game-card-row">
+                <div class="game-card-label">Matchup</div>
+                <div class="game-card-value">${home} vs ${away}</div>
+            </div>
+        `;
+
+        html += `
+            <div class="game-card-row">
+                <div class="game-card-label">Predicted Winner</div>
+                <div class="game-card-value">${pred}
+                    <span class="predicted-winner-tag">Model Pick</span>
+                </div>
+            </div>
+        `;
+
+        if (hasSpreads) {
+            html += `
+                <div class="game-card-row">
+                    <div class="game-card-label">Model Spread</div>
+                    <div class="game-card-value">${winSpread.toFixed(1)}</div>
+                </div>
+                <div class="game-card-row">
+                    <div class="game-card-label">Book Spread</div>
+                    <div class="game-card-value">${bookSpread.toFixed(1)}</div>
+                </div>
+            `;
+            if (edgeLabel) {
+                html += `
+                    <div class="game-card-row">
+                        <div class="game-card-label">Edge</div>
+                        <div class="game-card-value">
+                            <span class="edge-badge ${edgeClass}">${edgeLabel}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        html += `</div>`;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+/* -------------------- TABLE VIEW -------------------- */
+function renderTableView(rows) {
+    const container = document.getElementById("tableViewWrapper");
+    container.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        container.innerHTML = "<p>No prediction data available for this week.</p>";
+        return;
+    }
+
+    rows = rows.map(normalizeRow);
+
+    const headers = Object.keys(rows[0]).filter(h =>
+        !["season", "week"].includes(h.toLowerCase())
+    );
+
+    rows.sort((a, b) => {
+        const pa = parseProb(a["Win Probability"]) ?? -1;
+        const pb = parseProb(b["Win Probability"]) ?? -1;
+        return pb - pa;
+    });
+
     let html = "<table><thead><tr>";
     headers.forEach(h => html += `<th>${h}</th>`);
     html += "</tr></thead><tbody>";
@@ -286,11 +485,10 @@ function renderPredictionTable(rows) {
     });
 
     html += "</tbody></table>";
-
-    container.innerHTML = `<div class="prediction-wrapper">${html}</div>`;
+    container.innerHTML = html;
 }
 
-/* -------------------- Download Button -------------------- */
+/* -------------------- DOWNLOAD BUTTON -------------------- */
 function renderDownloadButton(filePath) {
     const container = document.getElementById("downloadContainer");
     container.innerHTML = "";
@@ -305,7 +503,7 @@ function renderDownloadButton(filePath) {
     container.appendChild(a);
 }
 
-/* -------------------- Load Prediction -------------------- */
+/* -------------------- LOAD PREDICTION -------------------- */
 async function loadPrediction(manifest, season, week) {
     showPredictionsLoading(true);
 
@@ -314,8 +512,9 @@ async function loadPrediction(manifest, season, week) {
     );
 
     if (!entry) {
-        document.getElementById("predictionTable").innerHTML =
+        document.getElementById("cardViewWrapper").innerHTML =
             "<p>No prediction file found for this season/week.</p>";
+        document.getElementById("tableViewWrapper").innerHTML = "";
         document.getElementById("summaryBox").classList.add("hidden");
         document.getElementById("downloadContainer").innerHTML = "";
         showPredictionsLoading(false);
@@ -327,17 +526,21 @@ async function loadPrediction(manifest, season, week) {
 
     try {
         const csvData = await loadCSV(path);
-        renderPredictionTable(csvData);
+
+        renderCardView(csvData);
+        renderTableView(csvData);
+
     } catch {
-        document.getElementById("predictionTable").innerHTML =
+        document.getElementById("cardViewWrapper").innerHTML =
             "<p>Error loading prediction data.</p>";
+        document.getElementById("tableViewWrapper").innerHTML = "";
         document.getElementById("summaryBox").classList.add("hidden");
     } finally {
         showPredictionsLoading(false);
     }
 }
 
-/* -------------------- Init -------------------- */
+/* -------------------- INIT -------------------- */
 async function init() {
     showPredictionsLoading(true);
     const manifest = await loadManifest();
@@ -363,6 +566,26 @@ async function init() {
 
     weekSelect.addEventListener("change", () => {
         loadPrediction(manifest, seasonSelect.value, weekSelect.value);
+    });
+
+    /* --- VIEW TOGGLE BUTTONS --- */
+    const cardBtn = document.getElementById("cardViewBtn");
+    const tableBtn = document.getElementById("tableViewBtn");
+    const cardWrapper = document.getElementById("cardViewWrapper");
+    const tableWrapper = document.getElementById("tableViewWrapper");
+
+    cardBtn.addEventListener("click", () => {
+        cardBtn.classList.add("active");
+        tableBtn.classList.remove("active");
+        cardWrapper.classList.remove("hidden");
+        tableWrapper.classList.add("hidden");
+    });
+
+    tableBtn.addEventListener("click", () => {
+        tableBtn.classList.add("active");
+        cardBtn.classList.remove("active");
+        tableWrapper.classList.remove("hidden");
+        cardWrapper.classList.add("hidden");
     });
 
     await loadPrediction(manifest, latestSeason, latestWeek);
