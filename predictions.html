@@ -57,7 +57,6 @@
             background: rgba(52,211,153,0.15);
             border: 1px solid rgba(52,211,153,0.7);
             color: #bbf7d0;
-            margin-top: 4px;
         }
 
         .game-card-row {
@@ -366,7 +365,7 @@ function renderCardView(rows) {
 
         html += `<div class="game-card">`;
 
-        /* NEW CARD LAYOUT */
+        /* NEW INLINE MODEL PICK LAYOUT */
         html += `
             <div style="display:flex; justify-content:center; text-align:center; width:100%; margin-bottom:10px;">
                 <div style="display:flex; align-items:center; justify-content:center; gap:28px; width:100%;">
@@ -374,8 +373,10 @@ function renderCardView(rows) {
                     <!-- Away Team -->
                     <div style="display:flex; flex-direction:column; align-items:center;">
                         <img class="team-logo" src="assets/logos/${away}.png">
-                        <div style="margin-top:4px; font-weight:600;">${away}</div>
-                        ${pred === away ? `<div class="predicted-winner-tag">Model Pick</div>` : ""}
+                        <div style="margin-top:4px; font-weight:600; display:flex; align-items:center; gap:6px;">
+                            ${away}
+                            ${pred === away ? `<span class="predicted-winner-tag">Model Pick (${probText})</span>` : ""}
+                        </div>
                     </div>
 
                     <!-- @ Symbol -->
@@ -384,20 +385,17 @@ function renderCardView(rows) {
                     <!-- Home Team -->
                     <div style="display:flex; flex-direction:column; align-items:center;">
                         <img class="team-logo" src="assets/logos/${home}.png">
-                        <div style="margin-top:4px; font-weight:600;">${home}</div>
-                        ${pred === home ? `<div class="predicted-winner-tag">Model Pick</div>` : ""}
+                        <div style="margin-top:4px; font-weight:600; display:flex; align-items:center; gap:6px;">
+                            ${home}
+                            ${pred === home ? `<span class="predicted-winner-tag">Model Pick (${probText})</span>` : ""}
+                        </div>
                     </div>
 
                 </div>
             </div>
         `;
 
-        html += `
-            <div class="game-card-row">
-                <div class="game-card-label">Win Probability</div>
-                <div class="game-card-value">${probText}</div>
-            </div>
-        `;
+        /* REMOVED WIN PROBABILITY ROW */
 
         if (hasSpreads) {
             html += `
