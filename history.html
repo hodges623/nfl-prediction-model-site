@@ -100,44 +100,19 @@ function showHistoryLoading(show) {
     else el.classList.add("hidden");
 }
 
-/* ---------- TEAM COLORS (PRIMARY) ---------- */
+/* ---------- TEAM COLORS ---------- */
 const TEAM_COLORS = {
-    "ARI": "#97233F",
-    "ATL": "#A71930",
-    "BAL": "#241773",
-    "BUF": "#00338D",
-    "CAR": "#0085CA",
-    "CHI": "#0B162A",
-    "CIN": "#FB4F14",
-    "CLE": "#311D00",
-    "DAL": "#003594",
-    "DEN": "#FB4F14",
-    "DET": "#0076B6",
-    "GB":  "#203731",
-    "HOU": "#03202F",
-    "IND": "#002C5F",
-    "JAX": "#006778",
-    "KC":  "#E31837",
-    "LV":  "#000000",
-    "LAC": "#0080C6",
-    "LAR": "#003594",
-    "MIA": "#008E97",
-    "MIN": "#4F2683",
-    "NE":  "#002244",
-    "NO":  "#D3BC8D",
-    "NYG": "#0B2265",
-    "NYJ": "#125740",
-    "PHI": "#004C54",
-    "PIT": "#FFB612",
-    "SF":  "#AA0000",
-    "SEA": "#002244",
-    "TB":  "#D50A0A",
-    "TEN": "#4B92DB",
-    "WAS": "#5A1414",
-    "WSH": "#5A1414"
+    "ARI": "#97233F","ATL": "#A71930","BAL": "#241773","BUF": "#00338D",
+    "CAR": "#0085CA","CHI": "#0B162A","CIN": "#FB4F14","CLE": "#311D00",
+    "DAL": "#003594","DEN": "#FB4F14","DET": "#0076B6","GB":  "#203731",
+    "HOU": "#03202F","IND": "#002C5F","JAX": "#006778","KC":  "#E31837",
+    "LV":  "#000000","LAC": "#0080C6","LAR": "#003594","MIA": "#008E97",
+    "MIN": "#4F2683","NE":  "#002244","NO":  "#D3BC8D","NYG": "#0B2265",
+    "NYJ": "#125740","PHI": "#004C54","PIT": "#FFB612","SF":  "#AA0000",
+    "SEA": "#002244","TB":  "#D50A0A","TEN": "#4B92DB","WAS": "#5A1414"
 };
 
-/* ---------- LATEST PREDICTION WEEK (TO EXCLUDE) ---------- */
+/* ---------- FIND LATEST PREDICTION ENTRY (POSTSEASON-AWARE) ---------- */
 function getLatestPredictionEntry(manifest) {
     return manifest.predictions_csv.reduce((a,b) => {
         if (Number(a.season) !== Number(b.season)) {
@@ -167,25 +142,26 @@ function filterHistoricalWithPredictions(historical, manifest) {
     });
 }
 
-/* ---------- DEDUPLICATE TWO-ROW GAMES ---------- */
+/* ---------- DEDUPE TWO-ROW GAMES (NOW POSTSEASON-AWARE) ---------- */
 function dedupeGames(rows) {
     const gameMap = {};
 
     rows.forEach(r => {
         const season = r.season;
         const week = r.week;
-        const ps = r.postseason_ind || "0";
-        const t1 = r.team_abbr || r.team || r.home_team || "";
-        const t2 = r.opponent_abbr || r.opponent || r.away_team || "";
+        const postseason_ind = r.postseason_ind || "0";
+
+        const t1 = r.team_abbr;
+        const t2 = r.opponent_abbr;
 
         const teamsSorted = [t1, t2].sort().join("-");
-        const key = `${season}-${week}-${ps}-${teamsSorted}`;
+        const key = `${season}-${week}-${postseason_ind}-${teamsSorted}`;  // UPDATED
 
         if (!gameMap[key]) {
             gameMap[key] = {
                 season: Number(season),
                 week: Number(week),
-                postseason_ind: Number(ps),
+                postseason_ind: Number(postseason_ind),
                 home_team: t1,
                 away_team: t2,
                 predicted_winner: r.predicted_winner,
@@ -197,7 +173,7 @@ function dedupeGames(rows) {
     return Object.values(gameMap);
 }
 
-/* ---------- SEASON LIST (ONLY SEASONS WITH COMPLETED GAMES) ---------- */
+/* ---------- POPULATE SEASON DROPDOWN (ONLY SEASONS WITH COMPLETED GAMES) ---------- */
 function populateSeasonDropdownFromGames(games) {
     const seasonSelect = document.getElementById("seasonSelect");
     seasonSelect.innerHTML = "";
@@ -216,16 +192,12 @@ function populateSeasonDropdownFromGames(games) {
     }
 }
 
-/* ---------- SUMMARY TEXT ---------- */
+/* ---------- SUMMARY BOX ---------- */
 function renderSummaryBox(games, selectedSeasons) {
     const box = document.getElementById("summaryBox");
-    if (!games || games.length === 0) {
-        box.classList.remove("hidden");
-        box.innerHTML = "<h2>No completed games with predictions for the selected season(s).</h2>";
-        return;
-    }
 
     const filtered = games.filter(g => selectedSeasons.includes(Number(g.season)));
+
     if (filtered.length === 0) {
         box.classList.remove("hidden");
         box.innerHTML = "<h2>No completed games with predictions for the selected season(s).</h2>";
@@ -234,6 +206,7 @@ function renderSummaryBox(games, selectedSeasons) {
 
     let correct = 0;
     let total = 0;
+
     filtered.forEach(g => {
         if (g.predicted_winner && g.actual_winner) {
             total++;
@@ -253,7 +226,7 @@ function renderSummaryBox(games, selectedSeasons) {
     `;
 }
 
-/* ---------- WEEKLY ACCURACY (PER SEASON) ---------- */
+/* ---------- WEEKLY ACCURACY (POSTSEASON-AWARE) ---------- */
 function computeWeeklyAccuracyBySeason(games, selectedSeasons) {
     const result = {}; // season -> key -> {correct,total}
     selectedSeasons.forEach(s => result[s] = {});
@@ -264,7 +237,8 @@ function computeWeeklyAccuracyBySeason(games, selectedSeasons) {
 
         const week = Number(g.week);
         const ps = Number(g.postseason_ind || 0);
-        const key = `${ps}-${week}`;
+
+        const key = `${ps}-${week}`;   // UPDATED
 
         if (!result[season][key]) {
             result[season][key] = {correct:0, total:0};
@@ -278,12 +252,12 @@ function computeWeeklyAccuracyBySeason(games, selectedSeasons) {
         }
     });
 
-    return result; // {season: {key: {correct,total}}}
+    return result;
 }
 
-/* ---------- TEAM ACCURACY (ACROSS SELECTED SEASONS) ---------- */
+/* ---------- TEAM ACCURACY (UNCHANGED) ---------- */
 function computeTeamAccuracy(games, selectedSeasons) {
-    const teamStats = {}; // team -> {correct,total}
+    const teamStats = {};
 
     games.forEach(g => {
         const season = Number(g.season);
@@ -297,7 +271,6 @@ function computeTeamAccuracy(games, selectedSeasons) {
         if (!pred || !actual) return;
 
         [t1, t2].forEach(team => {
-            if (!team) return;
             if (!teamStats[team]) teamStats[team] = {correct:0, total:0};
             teamStats[team].total++;
             if (pred === actual) teamStats[team].correct++;
@@ -323,12 +296,12 @@ function renderWeeklyChartFromData(weeklyBySeason) {
         const [ps, w] = k.split("-").map(Number);
         return {ps, w, key: k};
     }).sort((a,b) => {
-        if (a.ps !== b.ps) return a.ps - b.ps;
+        if (a.ps !== b.ps) return a.ps - b.ps;   // regular first, postseason after
         return a.w - b.w;
     });
 
     const labels = allKeys.map(k =>
-        k.ps === 1 ? `P${k.w}` : `W${k.w}`
+        k.ps === 1 ? `Postseason Week ${k.w}` : `Week ${k.w}`   // UPDATED LABEL
     );
 
     const seasonIds = Object.keys(weeklyBySeason).map(Number).sort((a,b) => a - b);
@@ -429,6 +402,7 @@ function getSelectedSeasons() {
 
 function renderAll(games) {
     const selectedSeasons = getSelectedSeasons();
+
     renderSummaryBox(games, selectedSeasons);
 
     const weeklyBySeason = computeWeeklyAccuracyBySeason(games, selectedSeasons);
@@ -445,9 +419,13 @@ async function init() {
     const manifest = await loadManifest();
     const historicalRaw = await loadHistoricalCSV();
 
+    // Filter to only games with predictions (excluding latest week)
     const historicalWithPred = filterHistoricalWithPredictions(historicalRaw, manifest);
+
+    // Deduplicate two-row games (now postseason-aware)
     const games = dedupeGames(historicalWithPred);
 
+    // Populate season dropdown based on completed games
     populateSeasonDropdownFromGames(games);
 
     const seasonSelect = document.getElementById("seasonSelect");
@@ -458,8 +436,10 @@ async function init() {
         seasonSelect.options[lastIdx].selected = true;
     }
 
+    // Initial render
     renderAll(games);
 
+    // Re-render when seasons change
     seasonSelect.addEventListener("change", () => {
         renderAll(games);
     });
