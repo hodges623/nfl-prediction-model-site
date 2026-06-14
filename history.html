@@ -3,13 +3,65 @@
 <head>
     <title>Historical Model Accuracy</title>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+        .chart-container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .summary-box {
+            background: #1f2933;
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #3b4a5a;
+        }
+
+        .summary-item {
+            margin-bottom: 8px;
+        }
+
+        .toggle-row {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .toggle-btn {
+            padding: 8px 16px;
+            margin: 0 6px;
+            border-radius: 6px;
+            border: 1px solid #4da3ff;
+            background: #1f2933;
+            color: #e5e7eb;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .toggle-btn.active {
+            background: #4da3ff;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
 <div class="container">
 
-    <!-- Navigation -->
     <div style="margin-bottom: 20px;">
         <a href="index.html" style="font-size: 1.1rem; text-decoration: none;">
             ← Back to Main Page
@@ -18,313 +70,282 @@
 
     <h1>Historical Model Accuracy</h1>
 
-    <!-- Season Checkbox Selector -->
-    <div id="seasonCheckboxes" style="margin-bottom: 20px;"></div>
+    <div style="text-align:center; margin-bottom:20px;">
+        <label for="seasonSelect" style="font-weight:bold;">Select Season:</label>
+        <select id="seasonSelect" style="margin-left:10px;"></select>
 
-    <!-- Loading indicator -->
-    <div id="historyLoading" class="loading">
+        <label for="viewSelect" style="margin-left:20px; font-weight:bold;">View:</label>
+        <select id="viewSelect" style="margin-left:10px;">
+            <option value="season">Season Summary</option>
+            <option value="week">Weekly Accuracy</option>
+        </select>
+    </div>
+
+    <div id="historyLoading" class="loading hidden">
         <div class="loader-spinner"></div>
-        <div>Loading historical accuracy...</div>
+        <div>Loading historical data...</div>
     </div>
 
-    <!-- Season Accuracy Table -->
-    <table id="accuracyTable" class="hidden">
-        <thead>
-            <tr>
-                <th>Season</th>
-                <th>Games</th>
-                <th>Correct</th>
-                <th>Accuracy</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div id="summaryBox" class="summary-box hidden"></div>
 
-    <!-- Week-by-week line chart -->
     <div class="chart-container">
-        <h2 style="text-align:center; margin-top:0; font-size:1.1rem;">Week-by-Week Accuracy</h2>
-        <canvas id="weeklyAccuracyChart"></canvas>
-    </div>
-
-    <!-- Team accuracy chart -->
-    <div class="chart-container">
-        <h2 style="text-align:center; margin-top:0; font-size:1.1rem;">Model Accuracy by Team</h2>
-        <canvas id="teamAccuracyChart"></canvas>
+        <canvas id="historyChart"></canvas>
     </div>
 
 </div>
 
 <script>
-/* ---------------- NFL TEAM COLORS ---------------- */
-const TEAM_COLORS = {
-    "ARI": "#97233F","ATL": "#A71930","BAL": "#241773","BUF": "#00338D",
-    "CAR": "#0085CA","CHI": "#0B162A","CIN": "#FB4F14","CLE": "#311D00",
-    "DAL": "#003594","DEN": "#FB4F14","DET": "#0076B6","GB": "#203731",
-    "HOU": "#03202F","IND": "#002C5F","JAX": "#006778","KC": "#E31837",
-    "LV": "#000000","LAC": "#0080C6","LAR": "#003594","MIA": "#008E97",
-    "MIN": "#4F2683","NE": "#002244","NO": "#D3BC8D","NYG": "#0B2265",
-    "NYJ": "#125740","PHI": "#004C54","PIT": "#FFB612","SF": "#AA0000",
-    "SEA": "#002244","TB": "#D50A0A","TEN": "#4B92DB","WAS": "#5A1414"
-};
+async function loadManifest() {
+    const res = await fetch("html/manifest.json");
+    return await res.json();
+}
 
-/* ---------------- CSV Loader ---------------- */
-async function loadCSV(path) {
-    const res = await fetch(path);
+async function loadHistoricalCSV() {
+    const res = await fetch("data/nfl_historical_matchup_data.csv");
     const text = await res.text();
     const rows = text.trim().split("\n").map(r => r.split(","));
     const headers = rows.shift();
     return rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
 }
 
-/* ---------------- Manifest Loader ---------------- */
-async function loadManifest() {
-    const res = await fetch("html/manifest.json");
-    return await res.json();
-}
-
 function showHistoryLoading(show) {
-    const loadingEl = document.getElementById("historyLoading");
-    const tableEl = document.getElementById("accuracyTable");
-    if (show) {
-        loadingEl.classList.remove("hidden");
-        tableEl.classList.add("hidden");
-    } else {
-        loadingEl.classList.add("hidden");
-        tableEl.classList.remove("hidden");
-    }
+    const el = document.getElementById("historyLoading");
+    if (show) el.classList.remove("hidden");
+    else el.classList.add("hidden");
 }
 
-/* ---------------- Season Checkbox Builder ---------------- */
-function buildSeasonCheckboxes(manifest) {
-    const container = document.getElementById("seasonCheckboxes");
-    container.innerHTML = "<strong>Select Seasons:</strong><br><br>";
+/* -------------------- SEASON DROPDOWN -------------------- */
+function populateSeasonDropdown(manifest) {
+    const seasons = [...new Set(manifest.predictions_csv.map(item => Number(item.season)))].sort((a,b) => a - b);
+    const seasonSelect = document.getElementById("seasonSelect");
+    seasonSelect.innerHTML = "";
 
-    const seasonWeeks = {};
-    manifest.predictions_csv.forEach(p => {
-        const s = Number(p.season);
-        const w = Number(p.week);
-        if (!seasonWeeks[s]) seasonWeeks[s] = 0;
-        seasonWeeks[s] = Math.max(seasonWeeks[s], w);
-    });
-
-    const validSeasons = Object.keys(seasonWeeks)
-        .filter(s => seasonWeeks[s] > 1)
-        .sort((a,b) => Number(a) - Number(b));
-
-    validSeasons.forEach(season => {
-        const id = `season_${season}`;
-        container.innerHTML += `
-            <label style="margin-right: 15px;">
-                <input type="checkbox" id="${id}" value="${season}" checked>
-                ${season}
-            </label>
-        `;
-    });
-
-    container.querySelectorAll("input").forEach(cb => {
-        cb.addEventListener("change", buildAccuracy);
+    seasons.forEach(season => {
+        const opt = document.createElement("option");
+        opt.value = season;
+        opt.textContent = season;
+        seasonSelect.appendChild(opt);
     });
 }
 
-/* ---------------- Charts ---------------- */
-let weeklyChart = null;
-let teamChart = null;
+/* -------------------- FILTER HISTORICAL GAMES WITH PREDICTIONS -------------------- */
+function filterHistoricalWithPredictions(historical, manifest) {
+    const predictionIndex = new Set(
+        manifest.predictions_csv.map(
+            p => `${p.season}-${p.week}-${p.postseason_ind}`
+        )
+    );
 
-/* ---------------- Build Accuracy ---------------- */
-async function buildAccuracy() {
-    showHistoryLoading(true);
+    return historical.filter(h => {
+        const key = `${h.season}-${h.week}-${h.postseason_ind}`;
+        return predictionIndex.has(key);
+    });
+}
 
-    const manifest = await loadManifest();
-    const history = await loadCSV("data/nfl_historical_matchup_data.csv");
+/* -------------------- GROUP BY SEASON -------------------- */
+function groupBySeason(rows) {
+    const map = {};
+    rows.forEach(r => {
+        const s = Number(r.season);
+        if (!map[s]) map[s] = [];
+        map[s].push(r);
+    });
+    return map;
+}
 
-    const predictions = [];
+/* -------------------- CALCULATE ACCURACY -------------------- */
+function calculateSeasonAccuracy(rows) {
+    let correct = 0;
+    let total = 0;
 
-    for (const entry of manifest.predictions_csv) {
-        const rows = await loadCSV(`data/${entry.file}`);
-        rows.forEach(r => {
-            r.season = Number(entry.season);
-            r.week = Number(entry.week);
+    rows.forEach(r => {
+        const pred = r.predicted_winner;
+        const actual = r.actual_winner;
 
-            if (r["Home Team"]) {
-                r.team1 = r["Home Team"];
-                r.team2 = r["Away Team"];
-                r.predicted = r["Predicted Winner"];
-            } else {
-                r.team1 = r.team_abbr;
-                r.team2 = r.opponent_abbr;
-                r.predicted = r.predicted_winner;
-            }
-        });
-        predictions.push(...rows);
-    }
-
-    const predIndex = {};
-    predictions.forEach(p => {
-        const key1 = `${p.season}-${p.week}-${p.team1}-${p.team2}`;
-        const key2 = `${p.season}-${p.week}-${p.team2}-${p.team1}`;
-        predIndex[key1] = p;
-        predIndex[key2] = p;
+        if (pred && actual) {
+            total++;
+            if (pred === actual) correct++;
+        }
     });
 
-    const seasonWeeks = {};
-    let latestPredictSeason = 0;
-    manifest.predictions_csv.forEach(p => {
-        const s = Number(p.season);
-        const w = Number(p.week);
-        if (!seasonWeeks[s]) seasonWeeks[s] = 0;
-        seasonWeeks[s] = Math.max(seasonWeeks[s], w);
-        latestPredictSeason = Math.max(latestPredictSeason, s);
-    });
+    return total > 0 ? correct / total : 0;
+}
 
-    const selectedSeasons = [...document.querySelectorAll("#seasonCheckboxes input:checked")].map(cb => Number(cb.value));
+function calculateWeeklyAccuracy(rows) {
+    const map = {};
 
-    const seasonTotals = {};
-    const weeklyAccuracy = {};
-    const teamStats = {};
+    rows.forEach(r => {
+        const week = `${r.week}-${r.postseason_ind}`;
+        if (!map[week]) map[week] = {correct:0, total:0};
 
-    const games = {};
-    history.forEach(h => {
-        if (!games[h.game_id]) games[h.game_id] = [];
-        games[h.game_id].push(h);
-    });
-
-    Object.values(games).forEach(rows => {
-        const h = rows[0];
-        const season = Number(h.season);
-        const week = Number(h.week);
-
-        if (!selectedSeasons.includes(season)) return;
-
-        const latestWeek = seasonWeeks[season];
-        if (week >= latestWeek && season >= latestPredictSeason) return;
-
-        const winnerRow = rows.find(r => r.win === "True");
-        const loserRow = rows.find(r => r.win === "False");
-        if (!winnerRow || !loserRow) return;
-
-        const actualWinner = winnerRow.team_abbr;
-
-        const key = `${season}-${week}-${winnerRow.team_abbr}-${loserRow.team_abbr}`;
-        const pred = predIndex[key];
-
-        if (!seasonTotals[season]) seasonTotals[season] = {games: 0, correct: 0};
-        seasonTotals[season].games++;
-
-        const isCorrect = pred && pred.predicted === actualWinner;
-        if (isCorrect) seasonTotals[season].correct++;
-
-        if (!weeklyAccuracy[season]) weeklyAccuracy[season] = {};
-        if (!weeklyAccuracy[season][week]) weeklyAccuracy[season][week] = {games: 0, correct: 0};
-        weeklyAccuracy[season][week].games++;
-        if (isCorrect) weeklyAccuracy[season][week].correct++;
-
-        rows.forEach(r => {
-            const team = r.team_abbr;
-            if (!teamStats[team]) teamStats[team] = {games: 0, correct: 0};
-            teamStats[team].games++;
-            if (isCorrect) teamStats[team].correct++;
-        });
-    });
-
-    /* -------- Render Season Table -------- */
-    const tbody = document.querySelector("#accuracyTable tbody");
-    tbody.innerHTML = "";
-
-    Object.entries(seasonTotals).forEach(([season, stats]) => {
-        const acc = (stats.correct / stats.games * 100).toFixed(1) + "%";
-        tbody.innerHTML += `
-            <tr>
-                <td>${season}</td>
-                <td>${stats.games}</td>
-                <td>${stats.correct}</td>
-                <td>${acc}</td>
-            </tr>
-        `;
-    });
-
-    /* -------- Render Weekly Line Chart -------- */
-    const allWeeks = [...new Set(
-        Object.values(weeklyAccuracy)
-            .flatMap(seasonData => Object.keys(seasonData).map(Number))
-    )].sort((a,b) => a - b);
-
-    const datasets = Object.keys(weeklyAccuracy).map((season, idx) => {
-        const colorList = ["#4da3ff", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"];
-        const color = colorList[idx % colorList.length];
-
-        return {
-            label: season,
-            data: allWeeks.map(w => {
-                const stats = weeklyAccuracy[season][w];
-                return stats ? (stats.correct / stats.games * 100).toFixed(1) : null;
-            }),
-            borderColor: color,
-            backgroundColor: color + "33",
-            borderWidth: 2,
-            spanGaps: true,
-            tension: 0.2
-        };
-    });
-
-    const ctx1 = document.getElementById("weeklyAccuracyChart").getContext("2d");
-    if (weeklyChart) weeklyChart.destroy();
-
-    weeklyChart = new Chart(ctx1, {
-        type: 'line',
-        data: {
-            labels: allWeeks.map(w => `Week ${w}`),
-            datasets: datasets
-        },
-        options: {
-            scales: {
-                y: { beginAtZero: true, max: 100 }
+        if (r.predicted_winner && r.actual_winner) {
+            map[week].total++;
+            if (r.predicted_winner === r.actual_winner) {
+                map[week].correct++;
             }
         }
     });
 
-    /* -------- Render Team Accuracy Bar Chart -------- */
-    const teamLabels = [];
-    const teamAcc = [];
-    const teamColors = [];
+    const result = [];
+    for (const key of Object.keys(map)) {
+        const [week, postseason_ind] = key.split("-").map(Number);
+        const acc = map[key].total > 0 ? map[key].correct / map[key].total : 0;
+        result.push({week, postseason_ind, accuracy: acc});
+    }
 
-    Object.entries(teamStats).forEach(([team, stats]) => {
-        if (stats.games > 0) {
-            teamLabels.push(team);
-            teamAcc.push((stats.correct / stats.games * 100).toFixed(1));
-            teamColors.push(TEAM_COLORS[team] || "#888");
+    result.sort((a,b) => {
+        if (a.postseason_ind !== b.postseason_ind) {
+            return a.postseason_ind - b.postseason_ind;
         }
+        return a.week - b.week;
     });
 
-    const ctx2 = document.getElementById("teamAccuracyChart").getContext("2d");
-    if (teamChart) teamChart.destroy();
+    return result;
+}
 
-    teamChart = new Chart(ctx2, {
-        type: 'bar',
+/* -------------------- RENDER SEASON SUMMARY -------------------- */
+function renderSeasonSummary(rows) {
+    const summaryBox = document.getElementById("summaryBox");
+    summaryBox.classList.remove("hidden");
+
+    const accuracy = calculateSeasonAccuracy(rows);
+    const pct = (accuracy * 100).toFixed(1);
+
+    summaryBox.innerHTML = `
+        <h2>Season Summary</h2>
+        <div class="summary-item"><strong>Total Games with Predictions:</strong> ${rows.length}</div>
+        <div class="summary-item"><strong>Overall Accuracy:</strong> ${pct}%</div>
+    `;
+}
+
+/* -------------------- RENDER WEEKLY CHART -------------------- */
+let historyChart = null;
+
+function renderWeeklyChart(weeklyData) {
+    const ctx = document.getElementById("historyChart").getContext("2d");
+
+    const labels = weeklyData.map(w =>
+        w.postseason_ind === 1
+            ? `P${w.week}`
+            : `W${w.week}`
+    );
+
+    const values = weeklyData.map(w => (w.accuracy * 100).toFixed(1));
+
+    if (historyChart) {
+        historyChart.destroy();
+    }
+
+    historyChart = new Chart(ctx, {
+        type: "line",
         data: {
-            labels: teamLabels,
+            labels,
             datasets: [{
                 label: "Accuracy (%)",
-                data: teamAcc,
-                backgroundColor: teamColors,
-                borderColor: "#ffffff",
-                borderWidth: 2
+                data: values,
+                borderColor: "#4da3ff",
+                backgroundColor: "rgba(77,163,255,0.2)",
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: "#4da3ff"
             }]
         },
         options: {
+            responsive: true,
             scales: {
-                y: { beginAtZero: true, max: 100 }
+                y: {
+                    min: 0,
+                    max: 100,
+                    ticks: { callback: v => v + "%" }
+                }
             }
         }
     });
-
-    showHistoryLoading(false);
 }
 
-/* ---------------- Init ---------------- */
+/* -------------------- MAIN RENDER FUNCTION -------------------- */
+function renderHistoryView(season, view, historical, manifest) {
+    const filtered = filterHistoricalWithPredictions(historical, manifest)
+        .filter(r => Number(r.season) === Number(season));
+
+    if (filtered.length === 0) {
+        document.getElementById("summaryBox").classList.remove("hidden");
+        document.getElementById("summaryBox").innerHTML =
+            "<h2>No historical predictions available for this season.</h2>";
+        if (historyChart) historyChart.destroy();
+        return;
+    }
+
+    if (view === "season") {
+        renderSeasonSummary(filtered);
+
+        if (historyChart) historyChart.destroy();
+        const ctx = document.getElementById("historyChart").getContext("2d");
+        historyChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: ["Accuracy"],
+                datasets: [{
+                    label: "Accuracy (%)",
+                    data: [(calculateSeasonAccuracy(filtered) * 100).toFixed(1)],
+                    backgroundColor: "rgba(52,211,153,0.5)",
+                    borderColor: "rgba(52,211,153,1)",
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: { callback: v => v + "%" }
+                    }
+                }
+            }
+        });
+
+    } else if (view === "week") {
+        const weekly = calculateWeeklyAccuracy(filtered);
+
+        document.getElementById("summaryBox").classList.remove("hidden");
+        document.getElementById("summaryBox").innerHTML = `
+            <h2>Weekly Accuracy</h2>
+            <div class="summary-item">Includes only weeks where predictions exist.</div>
+        `;
+
+        renderWeeklyChart(weekly);
+    }
+}
+
+/* -------------------- INIT -------------------- */
 async function init() {
+    showHistoryLoading(true);
+
     const manifest = await loadManifest();
-    buildSeasonCheckboxes(manifest);
-    await buildAccuracy();
+    const historical = await loadHistoricalCSV();
+
+    populateSeasonDropdown(manifest);
+
+    const seasonSelect = document.getElementById("seasonSelect");
+    const viewSelect = document.getElementById("viewSelect");
+
+    /* Default to latest season with predictions */
+    const seasons = [...new Set(manifest.predictions_csv.map(p => Number(p.season)))];
+    const latestSeason = Math.max(...seasons);
+    seasonSelect.value = latestSeason;
+
+    renderHistoryView(latestSeason, viewSelect.value, historical, manifest);
+
+    seasonSelect.addEventListener("change", () => {
+        renderHistoryView(seasonSelect.value, viewSelect.value, historical, manifest);
+    });
+
+    viewSelect.addEventListener("change", () => {
+        renderHistoryView(seasonSelect.value, viewSelect.value, historical, manifest);
+    });
+
+    showHistoryLoading(false);
 }
 
 init();

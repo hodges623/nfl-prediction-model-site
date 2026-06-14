@@ -28,11 +28,17 @@
 
         .cards-grid {
             display: grid;
-            /*grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));*/
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 18px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
             margin-top: 16px;
         }
+
+        @media (max-width: 700px) {
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .game-card {
             background: #1f2933;
             border-radius: 12px;
@@ -52,9 +58,9 @@
         }
 
         .winner-border {
-            border: none;
-            padding: 0;
-            border-radius: 0;
+            border: 1px solid rgba(52,211,153,0.8);
+            padding: 2px;
+            border-radius: 6px;
         }
 
         .pill-row {
@@ -210,29 +216,55 @@ function populateWeekDropdown(manifest, season) {
     const weekSelect = document.getElementById("weekSelect");
     weekSelect.innerHTML = "";
 
-    const weeks = manifest.predictions_csv
-        .filter(item => Number(item.season) === Number(season))
-        .map(item => Number(item.week))
-        .sort((a, b) => a - b);
-
-    weeks.forEach(week => {
-        const opt = document.createElement("option");
-        opt.value = week;
-        opt.textContent = `Week ${week}`;
-        weekSelect.appendChild(opt);
-    });
-}
-
-function getLatestSeason(manifest) {
-    return Math.max(...manifest.predictions_csv.map(item => Number(item.season)));
-}
-
-function getLatestWeek(manifest, season) {
-    return Math.max(
-        ...manifest.predictions_csv
-            .filter(item => Number(item.season) === Number(season))
-            .map(item => Number(item.week))
+    const entries = manifest.predictions_csv.filter(
+        item => Number(item.season) === Number(season)
     );
+
+    const regular = entries.filter(e => Number(e.postseason_ind) === 0)
+                           .sort((a,b) => Number(a.week) - Number(b.week));
+
+    const post = entries.filter(e => Number(e.postseason_ind) === 1)
+                        .sort((a,b) => Number(a.week) - Number(b.week));
+
+    if (regular.length > 0) {
+        const header = document.createElement("option");
+        header.disabled = true;
+        header.textContent = "--- Regular Season ---";
+        weekSelect.appendChild(header);
+
+        regular.forEach(e => {
+            const opt = document.createElement("option");
+            opt.value = `${e.week}-0`;
+            opt.textContent = `Week ${e.week}`;
+            weekSelect.appendChild(opt);
+        });
+    }
+
+    if (post.length > 0) {
+        const header = document.createElement("option");
+        header.disabled = true;
+        header.textContent = "--- Postseason ---";
+        weekSelect.appendChild(header);
+
+        post.forEach(e => {
+            const opt = document.createElement("option");
+            opt.value = `${e.week}-1`;
+            opt.textContent = `Postseason Week ${e.week}`;
+            weekSelect.appendChild(opt);
+        });
+    }
+}
+
+function getLatestEntry(manifest) {
+    return manifest.predictions_csv.reduce((a,b) => {
+        if (Number(a.season) !== Number(b.season)) {
+            return Number(a.season) > Number(b.season) ? a : b;
+        }
+        if (Number(a.postseason_ind) !== Number(b.postseason_ind)) {
+            return Number(a.postseason_ind) > Number(b.postseason_ind) ? a : b;
+        }
+        return Number(a.week) > Number(b.week) ? a : b;
+    });
 }
 
 async function loadCSV(path) {
@@ -521,11 +553,14 @@ function renderDownloadButton(filePath) {
 }
 
 /* -------------------- LOAD PREDICTION -------------------- */
-async function loadPrediction(manifest, season, week) {
+async function loadPrediction(manifest, season, week, postseason_ind) {
     showPredictionsLoading(true);
 
     const entry = manifest.predictions_csv.find(
-        p => Number(p.season) === Number(season) && Number(p.week) === Number(week)
+        p =>
+            Number(p.season) === Number(season) &&
+            Number(p.week) === Number(week) &&
+            Number(p.postseason_ind) === Number(postseason_ind)
     );
 
     if (!entry) {
@@ -567,25 +602,52 @@ async function init() {
     const seasonSelect = document.getElementById("seasonSelect");
     const weekSelect = document.getElementById("weekSelect");
 
-    const latestSeason = getLatestSeason(manifest);
-    seasonSelect.value = latestSeason;
+    /* --- Default to latest week overall (regular or postseason) --- */
+    const latest = getLatestEntry(manifest);
+    seasonSelect.value = latest.season;
 
-    populateWeekDropdown(manifest, latestSeason);
-    const latestWeek = getLatestWeek(manifest, latestSeason);
-    weekSelect.value = latestWeek;
+    populateWeekDropdown(manifest, latest.season);
 
+    /* Set dropdown value using encoded format "week-postseason_ind" */
+    weekSelect.value = `${latest.week}-${latest.postseason_ind}`;
+
+    /* Load initial prediction */
+    await loadPrediction(manifest, latest.season, latest.week, latest.postseason_ind);
+
+    /* --- Season change handler --- */
     seasonSelect.addEventListener("change", () => {
         populateWeekDropdown(manifest, seasonSelect.value);
-        const latestWeekForSeason = getLatestWeek(manifest, seasonSelect.value);
-        weekSelect.value = latestWeekForSeason;
-        loadPrediction(manifest, seasonSelect.value, weekSelect.value);
+
+        /* After changing season, default to latest week in that season */
+        const entries = manifest.predictions_csv.filter(
+            p => Number(p.season) === Number(seasonSelect.value)
+        );
+
+        if (entries.length > 0) {
+            const latestSeasonEntry = entries.reduce((a,b) => {
+                if (Number(a.postseason_ind) !== Number(b.postseason_ind)) {
+                    return Number(a.postseason_ind) > Number(b.postseason_ind) ? a : b;
+                }
+                return Number(a.week) > Number(b.week) ? a : b;
+            });
+
+            weekSelect.value = `${latestSeasonEntry.week}-${latestSeasonEntry.postseason_ind}`;
+            loadPrediction(
+                manifest,
+                latestSeasonEntry.season,
+                latestSeasonEntry.week,
+                latestSeasonEntry.postseason_ind
+            );
+        }
     });
 
+    /* --- Week change handler --- */
     weekSelect.addEventListener("change", () => {
-        loadPrediction(manifest, seasonSelect.value, weekSelect.value);
+        const [week, postseason_ind] = weekSelect.value.split("-").map(Number);
+        loadPrediction(manifest, seasonSelect.value, week, postseason_ind);
     });
 
-    /* --- VIEW TOGGLE BUTTONS --- */
+    /* --- View toggle buttons --- */
     const cardBtn = document.getElementById("cardViewBtn");
     const tableBtn = document.getElementById("tableViewBtn");
     const cardWrapper = document.getElementById("cardViewWrapper");
@@ -605,7 +667,7 @@ async function init() {
         cardWrapper.classList.add("hidden");
     });
 
-    await loadPrediction(manifest, latestSeason, latestWeek);
+    showPredictionsLoading(false);
 }
 
 init();
