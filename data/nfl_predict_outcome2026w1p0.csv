@@ -1,17 +1,17 @@
-Postseason,Home Team,Away Team,Predicted Winner,Win Probability,Win Spread,Versus Book,Book Spread
-0,HOU,BUF,BUF,0.5402523,-1.6,with,-1.2
-0,TEN,NYJ,TEN,0.59943223,-2.6,with,-2.6
-0,IND,BAL,BAL,0.6126112,-2.8,with,-3.6
-0,JAX,CLE,JAX,0.775173,-8.2,with,-7.5
-0,KC,DEN,DEN,0.681922,-4.7,against,2.6
-0,LV,MIA,MIA,0.6396497,-3.5,against,3.2
-0,LAC,ARI,LAC,0.7285309,-6.3,with,-10.6
-0,PHI,WSH,PHI,0.67088115,-4.3,with,-4.6
-0,NYG,DAL,DAL,0.6432922,-3.6,with,-2.0
-0,MIN,GB,GB,0.64316577,-3.6,with,-0.7
-0,DET,NO,DET,0.65857434,-4.0,with,-7.1
-0,CAR,CHI,CHI,0.6518561,-3.8,with,-2.4
-0,SEA,NE,SEA,0.61162573,-2.8,with,-4.1
-0,LAR,SF,LAR,0.57562685,-2.1,with,-3.4
-0,PIT,ATL,PIT,0.51895326,-1.4,with,-2.9
-0,CIN,TB,CIN,0.5273888,-1.4,with,-3.6
+Home Team,Away Team,Predicted Winner,Win Probability,Win Spread,Versus Book,Book Spread
+HOU,BUF,BUF,0.5402523,-1.6,with,-1.2
+TEN,NYJ,TEN,0.59943223,-2.6,with,-2.6
+IND,BAL,BAL,0.6126112,-2.8,with,-3.6
+JAX,CLE,JAX,0.775173,-8.2,with,-7.5
+KC,DEN,DEN,0.681922,-4.7,against,2.6
+LV,MIA,MIA,0.6396497,-3.5,against,3.2
+LAC,ARI,LAC,0.7285309,-6.3,with,-10.6
+PHI,WSH,PHI,0.67088115,-4.3,with,-4.6
+NYG,DAL,DAL,0.6432922,-3.6,with,-2.0
+MIN,GB,GB,0.64316577,-3.6,with,-0.7
+DET,NO,DET,0.65857434,-4.0,with,-7.1
+CAR,CHI,CHI,0.6518561,-3.8,with,-2.4
+SEA,NE,SEA,0.61162573,-2.8,with,-4.1
+LAR,SF,LAR,0.57562685,-2.1,with,-3.4
+PIT,ATL,PIT,0.51895326,-1.4,with,-2.9
+CIN,TB,CIN,0.5273888,-1.4,with,-3.6
