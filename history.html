@@ -483,14 +483,20 @@ async function init() {
 
     const games = buildGamesFromHistoryAndPredictions(historicalRaw, predictionMap);
 
+    // Build checkbox UI
     populateSeasonCheckboxes(games);
 
+    // Initial render
+    renderAll(games);
+
+    // Re-render when any checkbox changes
     document.getElementById("seasonCheckboxContainer").addEventListener("change", () => {
         renderAll(games);
     });
 
     showHistoryLoading(false);
 }
+
 
 init();
 </script>
