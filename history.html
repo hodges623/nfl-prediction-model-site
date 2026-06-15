@@ -112,7 +112,7 @@ const TEAM_COLORS = {
     "SEA": "#002244","TB":  "#D50A0A","TEN": "#4B92DB","WAS": "#5A1414"
 };
 
-/* ---------- FIND LATEST PREDICTION ENTRY (POSTSEASON-AWARE) ---------- */
+/* ---------- LATEST PREDICTION ENTRY (POSTSEASON-AWARE) ---------- */
 function getLatestPredictionEntry(manifest) {
     return manifest.predictions_csv.reduce((a,b) => {
         if (Number(a.season) !== Number(b.season)) {
@@ -142,31 +142,33 @@ function filterHistoricalWithPredictions(historical, manifest) {
     });
 }
 
-/* ---------- DEDUPE TWO-ROW GAMES (NOW POSTSEASON-AWARE) ---------- */
-function dedupeGames(rows) {
+/* ---------- DEDUPE TO GAME-LEVEL (USING game_id) ---------- */
+function dedupeGamesToGameLevel(rows) {
     const gameMap = {};
 
     rows.forEach(r => {
-        const season = r.season;
-        const week = r.week;
-        const postseason_ind = r.postseason_ind || "0";
+        const game_id = r.game_id;
+        const season = Number(r.season);
+        const week = Number(r.week);
+        const postseason_ind = Number(r.postseason_ind || 0);
+        const team_abbr = r.team_abbr;
+        const opponent_abbr = r.opponent_abbr;
+        const win = String(r.win).toLowerCase() === "true";
 
-        const t1 = r.team_abbr;
-        const t2 = r.opponent_abbr;
-
-        const teamsSorted = [t1, t2].sort().join("-");
-        const key = `${season}-${week}-${postseason_ind}-${teamsSorted}`;  // UPDATED
-
-        if (!gameMap[key]) {
-            gameMap[key] = {
-                season: Number(season),
-                week: Number(week),
-                postseason_ind: Number(postseason_ind),
-                home_team: t1,
-                away_team: t2,
-                predicted_winner: r.predicted_winner,
-                actual_winner: r.actual_winner
+        if (!gameMap[game_id]) {
+            gameMap[game_id] = {
+                game_id,
+                season,
+                week,
+                postseason_ind,
+                team_abbr,
+                opponent_abbr,
+                any_correct: win,
+                total_rows: 1
             };
+        } else {
+            gameMap[game_id].any_correct = gameMap[game_id].any_correct || win;
+            gameMap[game_id].total_rows += 1;
         }
     });
 
@@ -192,11 +194,11 @@ function populateSeasonDropdownFromGames(games) {
     }
 }
 
-/* ---------- SUMMARY BOX ---------- */
-function renderSummaryBox(games, selectedSeasons) {
+/* ---------- SUMMARY BOX (USING GAME-LEVEL ACCURACY) ---------- */
+function renderSummaryBox(gameLevel, selectedSeasons) {
     const box = document.getElementById("summaryBox");
 
-    const filtered = games.filter(g => selectedSeasons.includes(Number(g.season)));
+    const filtered = gameLevel.filter(g => selectedSeasons.includes(Number(g.season)));
 
     if (filtered.length === 0) {
         box.classList.remove("hidden");
@@ -205,13 +207,10 @@ function renderSummaryBox(games, selectedSeasons) {
     }
 
     let correct = 0;
-    let total = 0;
+    let total = filtered.length;
 
     filtered.forEach(g => {
-        if (g.predicted_winner && g.actual_winner) {
-            total++;
-            if (g.predicted_winner === g.actual_winner) correct++;
-        }
+        if (g.any_correct) correct++;
     });
 
     const pct = total > 0 ? (correct / total * 100).toFixed(1) : "0.0";
@@ -226,55 +225,46 @@ function renderSummaryBox(games, selectedSeasons) {
     `;
 }
 
-/* ---------- WEEKLY ACCURACY (POSTSEASON-AWARE) ---------- */
-function computeWeeklyAccuracyBySeason(games, selectedSeasons) {
+/* ---------- WEEKLY ACCURACY (GAME-LEVEL, POSTSEASON-AWARE) ---------- */
+function computeWeeklyAccuracyBySeason(gameLevel, selectedSeasons) {
     const result = {}; // season -> key -> {correct,total}
     selectedSeasons.forEach(s => result[s] = {});
 
-    games.forEach(g => {
+    gameLevel.forEach(g => {
         const season = Number(g.season);
         if (!selectedSeasons.includes(season)) return;
 
         const week = Number(g.week);
         const ps = Number(g.postseason_ind || 0);
-
-        const key = `${ps}-${week}`;   // UPDATED
+        const key = `${ps}-${week}`;
 
         if (!result[season][key]) {
             result[season][key] = {correct:0, total:0};
         }
 
-        if (g.predicted_winner && g.actual_winner) {
-            result[season][key].total++;
-            if (g.predicted_winner === g.actual_winner) {
-                result[season][key].correct++;
-            }
+        result[season][key].total++;
+        if (g.any_correct) {
+            result[season][key].correct++;
         }
     });
 
     return result;
 }
 
-/* ---------- TEAM ACCURACY (UNCHANGED) ---------- */
-function computeTeamAccuracy(games, selectedSeasons) {
+/* ---------- TEAM ACCURACY (PER-TEAM ROWS USING win) ---------- */
+function computeTeamAccuracy(rows, selectedSeasons) {
     const teamStats = {};
 
-    games.forEach(g => {
-        const season = Number(g.season);
+    rows.forEach(r => {
+        const season = Number(r.season);
         if (!selectedSeasons.includes(season)) return;
 
-        const t1 = g.home_team;
-        const t2 = g.away_team;
-        const pred = g.predicted_winner;
-        const actual = g.actual_winner;
+        const team = r.team_abbr;
+        const win = String(r.win).toLowerCase() === "true";
 
-        if (!pred || !actual) return;
-
-        [t1, t2].forEach(team => {
-            if (!teamStats[team]) teamStats[team] = {correct:0, total:0};
-            teamStats[team].total++;
-            if (pred === actual) teamStats[team].correct++;
-        });
+        if (!teamStats[team]) teamStats[team] = {correct:0, total:0};
+        teamStats[team].total++;
+        if (win) teamStats[team].correct++;
     });
 
     return teamStats;
@@ -301,7 +291,7 @@ function renderWeeklyChartFromData(weeklyBySeason) {
     });
 
     const labels = allKeys.map(k =>
-        k.ps === 1 ? `Postseason Week ${k.w}` : `Week ${k.w}`   // UPDATED LABEL
+        k.ps === 1 ? `Postseason Week ${k.w}` : `Week ${k.w}`
     );
 
     const seasonIds = Object.keys(weeklyBySeason).map(Number).sort((a,b) => a - b);
@@ -400,15 +390,15 @@ function getSelectedSeasons() {
     return vals;
 }
 
-function renderAll(games) {
+function renderAll(gameLevel, rows) {
     const selectedSeasons = getSelectedSeasons();
 
-    renderSummaryBox(games, selectedSeasons);
+    renderSummaryBox(gameLevel, selectedSeasons);
 
-    const weeklyBySeason = computeWeeklyAccuracyBySeason(games, selectedSeasons);
+    const weeklyBySeason = computeWeeklyAccuracyBySeason(gameLevel, selectedSeasons);
     renderWeeklyChartFromData(weeklyBySeason);
 
-    const teamStats = computeTeamAccuracy(games, selectedSeasons);
+    const teamStats = computeTeamAccuracy(rows, selectedSeasons);
     renderTeamChartFromData(teamStats);
 }
 
@@ -419,29 +409,23 @@ async function init() {
     const manifest = await loadManifest();
     const historicalRaw = await loadHistoricalCSV();
 
-    // Filter to only games with predictions (excluding latest week)
     const historicalWithPred = filterHistoricalWithPredictions(historicalRaw, manifest);
 
-    // Deduplicate two-row games (now postseason-aware)
-    const games = dedupeGames(historicalWithPred);
+    const gameLevel = dedupeGamesToGameLevel(historicalWithPred);
 
-    // Populate season dropdown based on completed games
-    populateSeasonDropdownFromGames(games);
+    populateSeasonDropdownFromGames(gameLevel);
 
     const seasonSelect = document.getElementById("seasonSelect");
 
-    // Default: select latest season only
     if (seasonSelect.options.length > 0) {
         const lastIdx = seasonSelect.options.length - 1;
         seasonSelect.options[lastIdx].selected = true;
     }
 
-    // Initial render
-    renderAll(games);
+    renderAll(gameLevel, historicalWithPred);
 
-    // Re-render when seasons change
     seasonSelect.addEventListener("change", () => {
-        renderAll(games);
+        renderAll(gameLevel, historicalWithPred);
     });
 
     showHistoryLoading(false);
