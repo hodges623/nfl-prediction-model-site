@@ -109,7 +109,7 @@ const TEAM_COLORS = {
     "LV":  "#000000","LAC": "#0080C6","LAR": "#003594","MIA": "#008E97",
     "MIN": "#4F2683","NE":  "#002244","NO":  "#D3BC8D","NYG": "#0B2265",
     "NYJ": "#125740","PHI": "#004C54","PIT": "#FFB612","SF":  "#AA0000",
-    "SEA": "#002244","TB":  "#D50A0A","TEN": "#4B92DB","WAS": "#5A1414"
+    "SEA": "#002244","TB":  "#D50A0A","TEN": "#4B92DB","WAS": "#5A1414","WSH":"#5A1414"
 };
 
 /* ---------- LATEST PREDICTION ENTRY (POSTSEASON-AWARE) ---------- */
@@ -125,54 +125,99 @@ function getLatestPredictionEntry(manifest) {
     });
 }
 
-/* ---------- FILTER HISTORICAL TO GAMES WITH PREDICTIONS (EXCLUDING LATEST WEEK) ---------- */
-function filterHistoricalWithPredictions(historical, manifest) {
+/* ---------- LOAD ALL PREDICTIONS (EXCEPT LATEST WEEK) ---------- */
+async function loadAllPredictions(manifest) {
     const latest = getLatestPredictionEntry(manifest);
     const latestKey = `${latest.season}-${latest.week}-${latest.postseason_ind}`;
 
-    const predictionIndex = new Set(
-        manifest.predictions_csv
-            .filter(p => `${p.season}-${p.week}-${p.postseason_ind}` !== latestKey)
-            .map(p => `${p.season}-${p.week}-${p.postseason_ind}`)
+    const predictionMap = {}; 
+    // key: season-week-postseason_ind-teamsSorted  -> predicted_winner
+
+    const entries = manifest.predictions_csv.filter(p =>
+        `${p.season}-${p.week}-${p.postseason_ind}` !== latestKey
     );
 
-    return historical.filter(h => {
-        const key = `${h.season}-${h.week}-${h.postseason_ind}`;
-        return predictionIndex.has(key);
-    });
+    for (const p of entries) {
+        const path = `data/${p.file}`;
+        const res = await fetch(path);
+        if (!res.ok) continue;
+        const text = await res.text();
+        const rows = text.trim().split("\n").map(r => r.split(","));
+        const headers = rows.shift();
+        const records = rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
+
+        records.forEach(rec => {
+            const season = rec.season;
+            const week = rec.week;
+            const team = rec.team_abbr;
+            const opp = rec.opponent_abbr;
+            const predicted_winner = rec.predicted_winner;
+
+            const postseason_ind = String(p.postseason_ind ?? 0);
+            const teamsSorted = [team, opp].sort().join("-");
+            const key = `${season}-${week}-${postseason_ind}-${teamsSorted}`;
+
+            predictionMap[key] = predicted_winner;
+        });
+    }
+
+    return predictionMap;
 }
 
-/* ---------- DEDUPE TO GAME-LEVEL (USING game_id) ---------- */
-function dedupeGamesToGameLevel(rows) {
-    const gameMap = {};
-
-    rows.forEach(r => {
+/* ---------- BUILD GAME-LEVEL DATA BY JOINING HISTORY + PREDICTIONS ---------- */
+function buildGamesFromHistoryAndPredictions(historicalRows, predictionMap) {
+    // First, group historical rows by game_id to find actual winner
+    const byGameId = {};
+    historicalRows.forEach(r => {
         const game_id = r.game_id;
-        const season = Number(r.season);
-        const week = Number(r.week);
-        const postseason_ind = Number(r.postseason_ind || 0);
-        const team_abbr = r.team_abbr;
-        const opponent_abbr = r.opponent_abbr;
-        const win = String(r.win).toLowerCase() === "true";
-
-        if (!gameMap[game_id]) {
-            gameMap[game_id] = {
-                game_id,
-                season,
-                week,
-                postseason_ind,
-                team_abbr,
-                opponent_abbr,
-                any_correct: win,
-                total_rows: 1
-            };
-        } else {
-            gameMap[game_id].any_correct = gameMap[game_id].any_correct || win;
-            gameMap[game_id].total_rows += 1;
-        }
+        if (!byGameId[game_id]) byGameId[game_id] = [];
+        byGameId[game_id].push(r);
     });
 
-    return Object.values(gameMap);
+    const games = [];
+
+    Object.values(byGameId).forEach(rows => {
+        if (rows.length === 0) return;
+
+        const season = rows[0].season;
+        const week = rows[0].week;
+        const postseason_ind = rows[0].postseason_ind || "0";
+
+        // Determine actual winner from win == True
+        let actual_winner = null;
+        let teams = new Set();
+
+        rows.forEach(r => {
+            teams.add(r.team_abbr);
+            const win = String(r.win).toLowerCase() === "true";
+            if (win) {
+                actual_winner = r.team_abbr;
+            }
+        });
+
+        if (!actual_winner) return; // malformed game
+
+        const teamList = Array.from(teams);
+        if (teamList.length !== 2) return; // should be exactly two teams
+
+        const teamsSorted = [...teamList].sort().join("-");
+        const key = `${season}-${week}-${postseason_ind}-${teamsSorted}`;
+        const predicted_winner = predictionMap[key];
+
+        // Only keep games where we actually have a prediction
+        if (!predicted_winner) return;
+
+        games.push({
+            season: Number(season),
+            week: Number(week),
+            postseason_ind: Number(postseason_ind),
+            teams: teamList,
+            actual_winner,
+            predicted_winner
+        });
+    });
+
+    return games;
 }
 
 /* ---------- POPULATE SEASON DROPDOWN (ONLY SEASONS WITH COMPLETED GAMES) ---------- */
@@ -194,11 +239,11 @@ function populateSeasonDropdownFromGames(games) {
     }
 }
 
-/* ---------- SUMMARY BOX (USING GAME-LEVEL ACCURACY) ---------- */
-function renderSummaryBox(gameLevel, selectedSeasons) {
+/* ---------- SUMMARY BOX (GAME-LEVEL, USING PREDICTED vs ACTUAL) ---------- */
+function renderSummaryBox(games, selectedSeasons) {
     const box = document.getElementById("summaryBox");
 
-    const filtered = gameLevel.filter(g => selectedSeasons.includes(Number(g.season)));
+    const filtered = games.filter(g => selectedSeasons.includes(Number(g.season)));
 
     if (filtered.length === 0) {
         box.classList.remove("hidden");
@@ -210,7 +255,7 @@ function renderSummaryBox(gameLevel, selectedSeasons) {
     let total = filtered.length;
 
     filtered.forEach(g => {
-        if (g.any_correct) correct++;
+        if (g.predicted_winner === g.actual_winner) correct++;
     });
 
     const pct = total > 0 ? (correct / total * 100).toFixed(1) : "0.0";
@@ -226,11 +271,11 @@ function renderSummaryBox(gameLevel, selectedSeasons) {
 }
 
 /* ---------- WEEKLY ACCURACY (GAME-LEVEL, POSTSEASON-AWARE) ---------- */
-function computeWeeklyAccuracyBySeason(gameLevel, selectedSeasons) {
+function computeWeeklyAccuracyBySeason(games, selectedSeasons) {
     const result = {}; // season -> key -> {correct,total}
     selectedSeasons.forEach(s => result[s] = {});
 
-    gameLevel.forEach(g => {
+    games.forEach(g => {
         const season = Number(g.season);
         if (!selectedSeasons.includes(season)) return;
 
@@ -243,7 +288,7 @@ function computeWeeklyAccuracyBySeason(gameLevel, selectedSeasons) {
         }
 
         result[season][key].total++;
-        if (g.any_correct) {
+        if (g.predicted_winner === g.actual_winner) {
             result[season][key].correct++;
         }
     });
@@ -251,20 +296,25 @@ function computeWeeklyAccuracyBySeason(gameLevel, selectedSeasons) {
     return result;
 }
 
-/* ---------- TEAM ACCURACY (PER-TEAM ROWS USING win) ---------- */
-function computeTeamAccuracy(rows, selectedSeasons) {
+/* ---------- TEAM ACCURACY (PER TEAM, ACROSS SELECTED SEASONS) ---------- */
+/* For each game, both teams get:
+   - total++ (they played a game)
+   - correct++ if the model got the game outcome right (predicted_winner == actual_winner)
+*/
+function computeTeamAccuracy(games, selectedSeasons) {
     const teamStats = {};
 
-    rows.forEach(r => {
-        const season = Number(r.season);
+    games.forEach(g => {
+        const season = Number(g.season);
         if (!selectedSeasons.includes(season)) return;
 
-        const team = r.team_abbr;
-        const win = String(r.win).toLowerCase() === "true";
+        const isCorrect = g.predicted_winner === g.actual_winner;
 
-        if (!teamStats[team]) teamStats[team] = {correct:0, total:0};
-        teamStats[team].total++;
-        if (win) teamStats[team].correct++;
+        g.teams.forEach(team => {
+            if (!teamStats[team]) teamStats[team] = {correct:0, total:0};
+            teamStats[team].total++;
+            if (isCorrect) teamStats[team].correct++;
+        });
     });
 
     return teamStats;
@@ -390,15 +440,15 @@ function getSelectedSeasons() {
     return vals;
 }
 
-function renderAll(gameLevel, rows) {
+function renderAll(games) {
     const selectedSeasons = getSelectedSeasons();
 
-    renderSummaryBox(gameLevel, selectedSeasons);
+    renderSummaryBox(games, selectedSeasons);
 
-    const weeklyBySeason = computeWeeklyAccuracyBySeason(gameLevel, selectedSeasons);
+    const weeklyBySeason = computeWeeklyAccuracyBySeason(games, selectedSeasons);
     renderWeeklyChartFromData(weeklyBySeason);
 
-    const teamStats = computeTeamAccuracy(rows, selectedSeasons);
+    const teamStats = computeTeamAccuracy(games, selectedSeasons);
     renderTeamChartFromData(teamStats);
 }
 
@@ -408,12 +458,11 @@ async function init() {
 
     const manifest = await loadManifest();
     const historicalRaw = await loadHistoricalCSV();
+    const predictionMap = await loadAllPredictions(manifest);
 
-    const historicalWithPred = filterHistoricalWithPredictions(historicalRaw, manifest);
+    const games = buildGamesFromHistoryAndPredictions(historicalRaw, predictionMap);
 
-    const gameLevel = dedupeGamesToGameLevel(historicalWithPred);
-
-    populateSeasonDropdownFromGames(gameLevel);
+    populateSeasonDropdownFromGames(games);
 
     const seasonSelect = document.getElementById("seasonSelect");
 
@@ -422,10 +471,10 @@ async function init() {
         seasonSelect.options[lastIdx].selected = true;
     }
 
-    renderAll(gameLevel, historicalWithPred);
+    renderAll(games);
 
     seasonSelect.addEventListener("change", () => {
-        renderAll(gameLevel, historicalWithPred);
+        renderAll(games);
     });
 
     showHistoryLoading(false);
