@@ -116,10 +116,10 @@ select {
 /* Summary box */
 .summary-box {
     margin-top: 20px;
-    padding: 15px;
-    background-color: #181818;
-    border-radius: 8px;
-    border: 1px solid #333;
+    padding: 16px;
+    background-color: #1f2933;
+    border-radius: 10px;
+    border: 1px solid #3b4a5a;
     font-size: 0.95rem;
 }
 

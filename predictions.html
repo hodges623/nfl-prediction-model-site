@@ -5,6 +5,46 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
+	/* Dropdown button */
+        .pred-dropdown-button {
+            padding: 8px 14px;
+            background: #1f2937;
+            color: white;
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Dropdown menu */
+        .pred-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 40px;
+            left: 0;
+            background: #111827;
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            padding: 10px;
+            z-index: 50;
+            min-width: 200px;
+        }
+
+        /* Dropdown wrapper */
+        .pred-dropdown-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 0 10px;
+        }
+
+        .pred-dropdown-item {
+            padding: 6px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .pred-dropdown-item:hover {
+            background: #374151;
+        }
         /* --- CARD VIEW STYLES --- */
         .view-toggle {
             text-align: center;
@@ -159,12 +199,20 @@
 
     <h1>Modeled NFL Predictions</h1>
 
-    <div style="text-align: center;">
-        <label for="seasonSelect" style="font-weight: bold;">Select Season:</label>
-        <select id="seasonSelect" style="margin-left: 10px;"></select>
+    <div style="text-align:center; margin-bottom:20px;">
 
-        <label for="weekSelect" style="margin-left: 20px; font-weight: bold;">Select Week:</label>
-        <select id="weekSelect" style="margin-left: 10px;"></select>
+        <!-- Season Dropdown -->
+        <div class="pred-dropdown-wrapper">
+            <button id="seasonDropdownBtn" class="pred-dropdown-button">Season ▼</button>
+            <div id="seasonDropdownMenu" class="pred-dropdown-menu"></div>
+        </div>
+
+        <!-- Week Dropdown -->
+        <div class="pred-dropdown-wrapper">
+            <button id="weekDropdownBtn" class="pred-dropdown-button">Week ▼</button>
+            <div id="weekDropdownMenu" class="pred-dropdown-menu"></div>
+        </div>
+
     </div>
 
     <div class="view-toggle">
@@ -188,6 +236,26 @@
 </div>
 
 <script>
+// Toggle dropdowns
+document.addEventListener("click", (e) => {
+    const seasonBtn = document.getElementById("seasonDropdownBtn");
+    const seasonMenu = document.getElementById("seasonDropdownMenu");
+
+    const weekBtn = document.getElementById("weekDropdownBtn");
+    const weekMenu = document.getElementById("weekDropdownMenu");
+
+    if (seasonBtn.contains(e.target)) {
+        seasonMenu.style.display = seasonMenu.style.display === "block" ? "none" : "block";
+        weekMenu.style.display = "none";
+    } else if (weekBtn.contains(e.target)) {
+        weekMenu.style.display = weekMenu.style.display === "block" ? "none" : "block";
+        seasonMenu.style.display = "none";
+    } else {
+        seasonMenu.style.display = "none";
+        weekMenu.style.display = "none";
+    }
+});
+
 async function loadManifest() {
     const res = await fetch("html/manifest.json");
     return await res.json();
@@ -199,60 +267,46 @@ function showPredictionsLoading(show) {
     else el.classList.add("hidden");
 }
 
-function populateSeasonDropdown(manifest) {
-    const seasons = [...new Set(manifest.predictions_csv.map(item => Number(item.season)))].sort((a,b) => a - b);
-    const seasonSelect = document.getElementById("seasonSelect");
-    seasonSelect.innerHTML = "";
+// Populate season dropdown
+function populateSeasonDropdown(seasons) {
+    const menu = document.getElementById("seasonDropdownMenu");
+    menu.innerHTML = "";
 
     seasons.forEach(season => {
-        const opt = document.createElement("option");
-        opt.value = season;
-        opt.textContent = season;
-        seasonSelect.appendChild(opt);
+        const item = document.createElement("div");
+        item.className = "pred-dropdown-item";
+        item.textContent = season;
+
+        item.onclick = () => {
+            document.getElementById("seasonDropdownBtn").textContent = season + " ▼";
+            selectedSeason = season;
+            loadWeeksForSeason(season);
+            menu.style.display = "none";
+        };
+
+        menu.appendChild(item);
     });
 }
 
-function populateWeekDropdown(manifest, season) {
-    const weekSelect = document.getElementById("weekSelect");
-    weekSelect.innerHTML = "";
+// Populate week dropdown
+function populateWeekDropdown(weeks) {
+    const menu = document.getElementById("weekDropdownMenu");
+    menu.innerHTML = "";
 
-    const entries = manifest.predictions_csv.filter(
-        item => Number(item.season) === Number(season)
-    );
+    weeks.forEach(week => {
+        const item = document.createElement("div");
+        item.className = "pred-dropdown-item";
+        item.textContent = week;
 
-    const regular = entries.filter(e => Number(e.postseason_ind) === 0)
-                           .sort((a,b) => Number(a.week) - Number(b.week));
+        item.onclick = () => {
+            document.getElementById("weekDropdownBtn").textContent = week + " ▼";
+            selectedWeek = week;
+            loadPredictions();
+            menu.style.display = "none";
+        };
 
-    const post = entries.filter(e => Number(e.postseason_ind) === 1)
-                        .sort((a,b) => Number(a.week) - Number(b.week));
-
-    if (regular.length > 0) {
-        const header = document.createElement("option");
-        header.disabled = true;
-        header.textContent = "--- Regular Season ---";
-        weekSelect.appendChild(header);
-
-        regular.forEach(e => {
-            const opt = document.createElement("option");
-            opt.value = `${e.week}-0`;
-            opt.textContent = `Week ${e.week}`;
-            weekSelect.appendChild(opt);
-        });
-    }
-
-    if (post.length > 0) {
-        const header = document.createElement("option");
-        header.disabled = true;
-        header.textContent = "--- Postseason ---";
-        weekSelect.appendChild(header);
-
-        post.forEach(e => {
-            const opt = document.createElement("option");
-            opt.value = `${e.week}-1`;
-            opt.textContent = `Postseason Week ${e.week}`;
-            weekSelect.appendChild(opt);
-        });
-    }
+        menu.appendChild(item);
+    });
 }
 
 function getLatestEntry(manifest) {
