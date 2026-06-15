@@ -7,7 +7,7 @@
     <style>
         .chart-container {
             width: 100%;
-            max-width: 900px;
+            max-width: 900px;   /* MATCHES .container */
             margin: 0 auto 30px auto;
         }
 
@@ -69,6 +69,7 @@
 
 <body>
 
+<!-- EVERYTHING IS NOW INSIDE THE CONTAINER -->
 <div class="container">
 
     <div style="margin-bottom: 20px;">
@@ -173,7 +174,7 @@ function getLatestPredictionEntry(manifest) {
     });
 }
 
-/* -------------------- LOAD ALL PREDICTIONS -------------------- */
+/* -------------------- LOAD ALL PREDICTIONS (EXCEPT LATEST WEEK) -------------------- */
 async function loadAllPredictions(manifest) {
     const latest = getLatestPredictionEntry(manifest);
     const latestKey = `${latest.season}-${latest.week}-${latest.postseason_ind}`;
@@ -263,126 +264,7 @@ function buildGamesFromHistoryAndPredictions(historicalRows, predictionMap) {
 
     return games;
 }
-
-/* -------------------- POPULATE CHECKBOX UI -------------------- */
-function populateSeasonCheckboxes(games) {
-    const container = document.getElementById("seasonCheckboxContainer");
-    container.innerHTML = "";
-
-    const seasons = [...new Set(games.map(g => Number(g.season)))].sort((a,b) => a - b);
-
-    seasons.forEach(season => {
-        const wrapper = document.createElement("label");
-        wrapper.style.display = "flex";
-        wrapper.style.alignItems = "center";
-        wrapper.style.gap = "6px";
-        wrapper.style.cursor = "pointer";
-
-        wrapper.innerHTML = `
-            <input type="checkbox" class="seasonBox" value="${season}" checked>
-            <span>${season}</span>
-        `;
-
-        container.appendChild(wrapper);
-    });
-
-    const selectAll = document.getElementById("seasonSelectAll");
-    selectAll.checked = true;
-
-    selectAll.addEventListener("change", () => {
-        const boxes = document.querySelectorAll(".seasonBox");
-        boxes.forEach(b => b.checked = selectAll.checked);
-        renderAll(games);
-    });
-}
-
-/* -------------------- GET SELECTED SEASONS -------------------- */
-function getSelectedSeasons() {
-    const boxes = document.querySelectorAll(".seasonBox");
-    const selected = [];
-    boxes.forEach(b => {
-        if (b.checked) selected.push(Number(b.value));
-    });
-    return selected;
-}
-
-/* -------------------- SUMMARY BOX -------------------- */
-function renderSummaryBox(games, selectedSeasons) {
-    const box = document.getElementById("summaryBox");
-
-    const filtered = games.filter(g => selectedSeasons.includes(Number(g.season)));
-
-    if (filtered.length === 0) {
-        box.classList.remove("hidden");
-        box.innerHTML = "<h2>No completed games with predictions for the selected season(s).</h2>";
-        return;
-    }
-
-    let correct = 0;
-    let total = filtered.length;
-
-    filtered.forEach(g => {
-        if (g.predicted_winner === g.actual_winner) correct++;
-    });
-
-    const pct = total > 0 ? (correct / total * 100).toFixed(1) : "0.0";
-
-    box.classList.remove("hidden");
-    box.innerHTML = `
-        <h2>Historical Summary</h2>
-        <div class="summary-item"><strong>Selected Seasons:</strong> ${selectedSeasons.join(", ")}</div>
-        <div class="summary-item"><strong>Total Games with Predictions:</strong> ${total}</div>
-        <div class="summary-item"><strong>Correctly Predicted Games:</strong> ${correct}</div>
-        <div class="summary-item"><strong>Overall Accuracy:</strong> ${pct}%</div>
-        <div class="summary-item"><em>Includes only games where predictions exist and excludes the latest prediction week.</em></div>
-    `;
-}
-
-/* -------------------- WEEKLY ACCURACY -------------------- */
-function computeWeeklyAccuracyBySeason(games, selectedSeasons) {
-    const result = {};
-    selectedSeasons.forEach(s => result[s] = {});
-
-    games.forEach(g => {
-        const season = Number(g.season);
-        if (!selectedSeasons.includes(season)) return;
-
-        const week = Number(g.week);
-        const ps = Number(g.postseason_ind || 0);
-        const key = `${ps}-${week}`;
-
-        if (!result[season][key]) {
-            result[season][key] = {correct:0, total:0};
-        }
-
-        result[season][key].total++;
-        if (g.predicted_winner === g.actual_winner) {
-            result[season][key].correct++;
-        }
-    });
-
-    return result;
-}
-
-/* -------------------- TEAM ACCURACY -------------------- */
-function computeTeamAccuracy(games, selectedSeasons) {
-    const teamStats = {};
-
-    games.forEach(g => {
-        const season = Number(g.season);
-        if (!selectedSeasons.includes(season)) return;
-
-        const isCorrect = g.predicted_winner === g.actual_winner;
-
-        g.teams.forEach(team => {
-            if (!teamStats[team]) teamStats[team] = {correct:0, total:0};
-            teamStats[team].total++;
-            if (isCorrect) teamStats[team].correct++;
-        });
-    });
-
-    return teamStats;
-}
+</script>
 
 /* -------------------- WEEKLY CHART -------------------- */
 let weeklyChart = null;
@@ -521,10 +403,8 @@ async function init() {
 
     populateSeasonCheckboxes(games);
 
-    // Initial render
     renderAll(games);
 
-    // Re-render when any checkbox changes
     document.getElementById("seasonCheckboxContainer").addEventListener("change", () => {
         renderAll(games);
     });
@@ -535,7 +415,7 @@ async function init() {
 init();
 </script>
 
-</div> <!-- END .container -->
+</div> <!-- THIS IS THE CORRECT PLACE TO CLOSE THE CONTAINER -->
 
 </body>
 </html>
