@@ -54,10 +54,8 @@
     <h1>Historical Model Accuracy</h1>
 
     <div style="text-align:center; margin-bottom:20px;">
-        <label for="seasonSelect" style="font-weight:bold;">Select Season(s):</label>
-        <select id="seasonSelect" multiple style="margin-left:10px;"></select>
-        <div style="font-size:0.8rem; color:#9ca3af; margin-top:6px;">
-            Hold Ctrl (Cmd on Mac) to select multiple seasons.
+        <div id="seasonCheckboxContainer" style="display:flex; justify-content:center; flex-wrap:wrap; gap:12px; margin-bottom:10px;">
+            <!-- checkboxes inserted dynamically -->
         </div>
     </div>
 
@@ -98,6 +96,29 @@ function showHistoryLoading(show) {
     const el = document.getElementById("historyLoading");
     if (show) el.classList.remove("hidden");
     else el.classList.add("hidden");
+}
+
+function populateSeasonCheckboxes(games) {
+    const container = document.getElementById("seasonCheckboxContainer");
+    container.innerHTML = "";
+
+    const seasons = [...new Set(games.map(g => Number(g.season)))].sort((a,b) => a - b);
+
+    seasons.forEach(season => {
+        const id = `season_${season}`;
+        const wrapper = document.createElement("label");
+        wrapper.style.display = "flex";
+        wrapper.style.alignItems = "center";
+        wrapper.style.gap = "6px";
+        wrapper.style.fontSize = "1rem";
+
+        wrapper.innerHTML = `
+            <input type="checkbox" id="${id}" value="${season}" checked>
+            <span>${season}</span>
+        `;
+
+        container.appendChild(wrapper);
+    });
 }
 
 /* ---------- TEAM COLORS ---------- */
@@ -432,12 +453,12 @@ function renderTeamChartFromData(teamStats) {
 
 /* ---------- MAIN RENDER ---------- */
 function getSelectedSeasons() {
-    const select = document.getElementById("seasonSelect");
-    const vals = [];
-    for (const opt of select.options) {
-        if (opt.selected) vals.push(Number(opt.value));
-    }
-    return vals;
+    const boxes = document.querySelectorAll("#seasonCheckboxContainer input[type='checkbox']");
+    const selected = [];
+    boxes.forEach(b => {
+        if (b.checked) selected.push(Number(b.value));
+    });
+    return selected;
 }
 
 function renderAll(games) {
@@ -462,18 +483,9 @@ async function init() {
 
     const games = buildGamesFromHistoryAndPredictions(historicalRaw, predictionMap);
 
-    populateSeasonDropdownFromGames(games);
+    populateSeasonCheckboxes(games);
 
-    const seasonSelect = document.getElementById("seasonSelect");
-
-    if (seasonSelect.options.length > 0) {
-        const lastIdx = seasonSelect.options.length - 1;
-        seasonSelect.options[lastIdx].selected = true;
-    }
-
-    renderAll(games);
-
-    seasonSelect.addEventListener("change", () => {
+    document.getElementById("seasonCheckboxContainer").addEventListener("change", () => {
         renderAll(games);
     });
 
