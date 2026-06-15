@@ -306,7 +306,7 @@ function populateSeasonDropdown(manifest) {
                 selectedPostseason = latest.postseason_ind;
 
                 document.getElementById("weekDropdownBtn").textContent =
-                    `Week ${latest.week} (P${latest.postseason_ind}) ▼`;
+                    `Week ${latest.week} ▼`;
 
                 loadPrediction(manifest, season, latest.week, latest.postseason_ind);
             }
