@@ -235,12 +235,6 @@
 
     <div id="summaryBox" class="summary-box hidden"></div>
 
-    <div id="lastUpdated"
-        class="summary-item"
-        style="margin-top: 10px; font-size: 0.9rem; color: #9ca3af;">
-        Loading last update time...
-    </div>
-
     <div id="cardViewWrapper"></div>
 
     <div id="tableViewWrapper" class="hidden"></div>
@@ -704,7 +698,7 @@ async function loadPrediction(manifest, season, week, postseason_ind) {
     }
 }
 
-/* -------------------- INIT -------------------- */
+/* -------------------- INIT (FULLY FIXED) -------------------- */
 let selectedSeason = null;
 let selectedWeek = null;
 let selectedPostseason = null;
@@ -741,9 +735,6 @@ async function init() {
 
     /* Load initial prediction */
     await loadPrediction(manifest, selectedSeason, selectedWeek, selectedPostseason);
-    
-    /* Load update timestamp */
-    loadTimestamp();
 
     /* View toggle */
     const cardBtn = document.getElementById("cardViewBtn");
@@ -766,32 +757,6 @@ async function init() {
     });
 
     showPredictionsLoading(false);
-}
-
-/* -------------------- LOAD TIMESTAMP -------------------- */
-async function loadTimestamp() {
-    try {
-        const res = await fetch("git_push_timestamp.json");
-        const data = await res.json();
-
-        const dt = new Date(data.last_update);
-
-        const formatted = dt.toLocaleString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "numeric",
-            second: "numeric",
-            hour12: true
-        });
-
-        document.getElementById("lastUpdated").textContent =
-            "Last updated: " + formatted;
-    } catch (err) {
-        document.getElementById("lastUpdated").textContent =
-            "Last updated: unavailable";
-    }
 }
 
 init();
