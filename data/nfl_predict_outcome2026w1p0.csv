@@ -2,7 +2,7 @@ Home Team,Away Team,Predicted Winner,Win Probability,Win Spread,Versus Book,Book
 HOU,BUF,BUF,0.6204363,-3.0,with,-1.3
 TEN,NYJ,NYJ,0.5204053,-1.4,against,1.8
 IND,BAL,BAL,0.5035142,-1.2,with,-3.5
-JAX,CLE,JAX,0.75989705,-7.5,with,-7.5
+JAX,CLE,JAX,0.75989705,-7.5,with,-7.7
 KC,DEN,KC,0.5024284,-1.2,with,-2.7
 LV,MIA,MIA,0.57377017,-2.1,against,3.5
 LAC,ARI,LAC,0.6350047,-3.4,with,-10.2
@@ -10,8 +10,8 @@ PHI,WSH,PHI,0.5876069,-2.3,with,-5.3
 NYG,DAL,DAL,0.61605036,-2.9,with,-2.7
 MIN,GB,GB,0.65870583,-4.0,against,1.5
 DET,NO,DET,0.65460765,-3.9,with,-6.8
-CAR,CHI,CHI,0.59854645,-2.5,with,-2.5
+CAR,CHI,CHI,0.59854645,-2.5,with,-2.7
 SEA,NE,SEA,0.52316743,-1.4,with,-3.5
 LAR,SF,LAR,0.5234029,-1.4,with,-3.5
-PIT,ATL,PIT,0.5596,-1.9,with,-3.2
+PIT,ATL,PIT,0.5596,-1.9,with,-3.3
 CIN,TB,CIN,0.60171187,-2.6,with,-3.7
