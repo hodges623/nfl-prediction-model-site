@@ -197,59 +197,17 @@ async function loadAllPredictions(manifest) {
 
         const text = await res.text();
         const rows = text.trim().split("\n").map(r => r.split(","));
-        const headers = rows.shift().map(h => h.trim());
+        const headers = rows.shift();
+        const records = rows.map(r => Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
 
-        const records = rows.map(r => {
-            const obj = Object.fromEntries(headers.map((h,i)=>[h,r[i]]));
-
-            /* -------------------- FORMAT DETECTION -------------------- */
-            const is2025 =
-                obj.season !== undefined &&
-                obj.week !== undefined &&
-                obj.team_abbr !== undefined &&
-                obj.opponent_abbr !== undefined;
-
-            const is2026 =
-                obj["Home Team"] !== undefined &&
-                obj["Away Team"] !== undefined &&
-                obj["Predicted Winner"] !== undefined;
-
-            /* -------------------- NORMALIZATION -------------------- */
-            if (is2025) {
-                return {
-                    season: Number(obj.season),
-                    week: Number(obj.week),
-                    team_abbr: obj.team_abbr,
-                    opponent_abbr: obj.opponent_abbr,
-                    predicted_winner: obj.predicted_winner,
-                    postseason_ind: Number(p.postseason_ind ?? 0)
-                };
-            }
-
-            if (is2026) {
-                return {
-                    season: Number(p.season),        // from manifest
-                    week: Number(p.week),            // from manifest
-                    team_abbr: obj["Home Team"],
-                    opponent_abbr: obj["Away Team"],
-                    predicted_winner: obj["Predicted Winner"],
-                    postseason_ind: Number(p.postseason_ind ?? 0)
-                };
-            }
-
-            // Unknown format → skip
-            return null;
-        }).filter(x => x !== null);
-
-        /* -------------------- BUILD PREDICTION KEYS -------------------- */
         records.forEach(rec => {
             const season = rec.season;
             const week = rec.week;
             const team = rec.team_abbr;
             const opp = rec.opponent_abbr;
             const predicted_winner = rec.predicted_winner;
-            const postseason_ind = rec.postseason_ind;
 
+            const postseason_ind = String(p.postseason_ind ?? 0);
             const teamsSorted = [team, opp].sort().join("-");
             const key = `${season}-${week}-${postseason_ind}-${teamsSorted}`;
 
