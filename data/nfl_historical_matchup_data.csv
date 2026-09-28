@@ -713,7 +713,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424212,2025,18,6,BAL,7,PIT,0,24.0,26.0,False,0
 1392221,2026,1,6,BAL,12,IND,0,41.0,23.0,True,0
 1392239,2026,2,6,BAL,26,NO,1,17.0,24.0,False,0
-1392260,2026,3,6,BAL,19,DAL,0,17.0,13.0,True,0
+1392260,2026,3,6,BAL,19,DAL,0,34.0,31.0,True,0
 5344,2018,1,7,PIT,8,CLE,0,21.0,21.0,False,0
 5366,2018,2,7,PIT,14,KC,1,37.0,42.0,False,0
 5390,2018,3,7,PIT,28,TB,0,30.0,27.0,True,0
@@ -2133,7 +2133,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424206,2025,18,16,LV,14,KC,1,14.0,12.0,True,0
 1392226,2026,1,16,LV,5,MIA,1,27.0,13.0,True,0
 1392242,2026,2,16,LV,17,LAC,0,26.0,14.0,True,0
-1392261,2026,3,16,LV,26,NO,0,16.0,13.0,True,0
+1392261,2026,3,16,LV,26,NO,0,35.0,27.0,True,0
 5352,2018,1,17,LAC,14,KC,1,28.0,38.0,False,0
 5361,2018,2,17,LAC,3,BUF,0,31.0,20.0,True,0
 5386,2018,3,17,LAC,32,LAR,0,23.0,35.0,False,0
@@ -2565,7 +2565,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424210,2025,18,19,DAL,20,NYG,0,17.0,34.0,False,0
 1392230,2026,1,19,DAL,20,NYG,0,20.0,28.0,False,0
 1392243,2026,2,19,DAL,21,WSH,1,37.0,20.0,True,0
-1392260,2026,3,19,DAL,6,BAL,1,13.0,17.0,False,0
+1392260,2026,3,19,DAL,6,BAL,1,31.0,34.0,False,0
 5350,2018,1,20,NYG,13,JAX,1,15.0,20.0,False,0
 5373,2018,2,20,NYG,19,DAL,0,13.0,20.0,False,0
 5385,2018,3,20,NYG,10,HOU,0,27.0,22.0,True,0
@@ -3128,7 +3128,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424208,2025,18,23,MIN,22,GB,1,16.0,3.0,True,0
 1392227,2026,1,23,MIN,22,GB,1,39.0,22.0,True,0
 1392234,2026,2,23,MIN,24,CHI,0,9.0,3.0,True,0
-1392259,2026,3,23,MIN,28,TB,0,17.0,10.0,True,0
+1392259,2026,3,23,MIN,28,TB,0,23.0,16.0,True,0
 5356,2018,1,24,CHI,22,GB,0,23.0,24.0,False,0
 5374,2018,2,24,CHI,31,SEA,1,24.0,17.0,True,0
 5387,2018,3,24,CHI,33,ARI,0,16.0,14.0,True,0
@@ -3549,7 +3549,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424201,2025,18,26,NO,27,ATL,0,17.0,19.0,False,0
 1392219,2026,1,26,NO,25,DET,0,30.0,31.0,False,0
 1392239,2026,2,26,NO,6,BAL,0,24.0,17.0,True,0
-1392261,2026,3,26,NO,16,LV,1,13.0,16.0,False,0
+1392261,2026,3,26,NO,16,LV,1,27.0,35.0,False,0
 5343,2018,1,27,ATL,18,PHI,0,12.0,18.0,False,0
 5360,2018,2,27,ATL,29,CAR,1,31.0,24.0,True,0
 5376,2018,3,27,ATL,26,NO,1,37.0,43.0,False,0
@@ -3831,7 +3831,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424214,2025,18,28,TB,29,CAR,1,16.0,14.0,True,0
 1392218,2026,1,28,TB,9,CIN,0,27.0,33.0,False,0
 1392238,2026,2,28,TB,8,CLE,1,19.0,23.0,False,0
-1392259,2026,3,28,TB,23,MIN,1,10.0,17.0,False,0
+1392259,2026,3,28,TB,23,MIN,1,16.0,23.0,False,0
 5355,2018,1,29,CAR,19,DAL,1,16.0,8.0,True,0
 5360,2018,2,29,CAR,27,ATL,0,24.0,31.0,False,0
 5382,2018,3,29,CAR,9,CIN,1,31.0,21.0,True,0
@@ -4118,7 +4118,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 1286917,2025,2,30,SF,31,SEA,0,6.0,41.0,False,1
 1392217,2026,1,30,SF,32,LAR,0,27.0,7.0,True,0
 1392245,2026,2,30,SF,5,MIA,1,35.0,13.0,True,0
-1392258,2026,3,30,SF,33,ARI,1,17.0,6.0,True,0
+1392258,2026,3,30,SF,33,ARI,1,36.0,30.0,True,0
 5353,2018,1,31,SEA,15,DEN,0,24.0,27.0,False,0
 5374,2018,2,31,SEA,24,CHI,0,17.0,24.0,False,0
 5388,2018,3,31,SEA,19,DAL,1,24.0,13.0,True,0
@@ -4550,4 +4550,4 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 424207,2025,18,33,ARI,32,LAR,0,20.0,37.0,False,0
 1392229,2026,1,33,ARI,17,LAC,0,26.0,14.0,True,0
 1392244,2026,2,33,ARI,31,SEA,1,7.0,31.0,False,0
-1392258,2026,3,33,ARI,30,SF,0,6.0,17.0,False,0
+1392258,2026,3,33,ARI,30,SF,0,30.0,36.0,False,0
