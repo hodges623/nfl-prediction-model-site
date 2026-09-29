@@ -125,6 +125,12 @@
       "week": 3,
       "postseason_ind": 0,
       "file": "nfl_predict_outcome2026w3p0.csv"
+    },
+    {
+      "season": 2026,
+      "week": 4,
+      "postseason_ind": 0,
+      "file": "nfl_predict_outcome2026w4p0.csv"
     }
   ]
 }
