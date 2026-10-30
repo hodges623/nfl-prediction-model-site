@@ -3084,7 +3084,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 1392290,2026,5,22,GB,24,CHI,1,31.0,7.0,True,0
 1392307,2026,6,22,GB,19,DAL,1,23.0,13.0,True,0
 1392319,2026,7,22,GB,25,DET,0,17.0,20.0,False,0
-1392323,2026,8,22,GB,29,CAR,1,,,False,0
+1392323,2026,8,22,GB,29,CAR,1,27.0,19.0,True,0
 5347,2018,1,23,MIN,30,SF,1,24.0,16.0,True,0
 5362,2018,2,23,MIN,22,GB,0,29.0,29.0,False,0
 5379,2018,3,23,MIN,3,BUF,1,6.0,27.0,False,0
@@ -4095,7 +4095,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 1392278,2026,4,29,CAR,25,DET,1,32.0,26.0,True,0
 1392302,2026,6,29,CAR,18,PHI,0,25.0,14.0,True,0
 1392315,2026,7,29,CAR,28,TB,1,13.0,43.0,False,0
-1392323,2026,8,29,CAR,22,GB,0,,,False,0
+1392323,2026,8,29,CAR,22,GB,0,19.0,27.0,False,0
 5347,2018,1,30,SF,23,MIN,0,16.0,24.0,False,0
 5370,2018,2,30,SF,25,DET,1,30.0,27.0,True,0
 5377,2018,3,30,SF,14,KC,0,27.0,38.0,False,0
