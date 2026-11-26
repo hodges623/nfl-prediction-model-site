@@ -3161,7 +3161,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 1392323,2026,8,22,GB,29,CAR,1,27.0,19.0,True,0
 1392348,2026,9,22,GB,1,NE,0,45.0,27.0,True,0
 1392356,2026,10,22,GB,23,MIN,1,10.0,30.0,False,0
-1392379,2026,12,22,GB,32,LAR,0,,,False,0
+1392379,2026,12,22,GB,32,LAR,0,13.0,26.0,False,0
 5347,2018,1,23,MIN,30,SF,1,24.0,16.0,True,0
 5362,2018,2,23,MIN,22,GB,0,29.0,29.0,False,0
 5379,2018,3,23,MIN,3,BUF,1,6.0,27.0,False,0
@@ -4666,7 +4666,7 @@ game_id,season,week,team_id,team_abbr,opponent_id,opponent_abbr,is_home,team_sco
 1392332,2026,8,32,LAR,17,LAC,1,24.0,9.0,True,0
 1392344,2026,9,32,LAR,21,WSH,0,20.0,13.0,True,0
 1392362,2026,10,32,LAR,33,ARI,0,34.0,6.0,True,0
-1392379,2026,12,32,LAR,22,GB,1,,,False,0
+1392379,2026,12,32,LAR,22,GB,1,26.0,13.0,True,0
 5354,2018,1,33,ARI,21,WSH,1,6.0,24.0,False,0
 5369,2018,2,33,ARI,32,LAR,0,0.0,34.0,False,0
 5387,2018,3,33,ARI,24,CHI,1,14.0,16.0,False,0
